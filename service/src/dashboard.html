@@ -841,6 +841,17 @@ document.getElementById("shade").addEventListener("change", e => {
 });
 document.getElementById("refresh").addEventListener("click", () => { heatCache = null; load(); });
 
+/* ===== deep links: ?view=besttime&days=30&type=gym&facility=A&facility=B&split=1 ===== */
+(function applyUrlState() {
+  const q = new URLSearchParams(location.search);
+  if (["timeline", "besttime"].includes(q.get("view"))) state.view = q.get("view");
+  if (["", "pool", "gym"].includes(q.get("type"))) state.type = q.get("type");
+  if (q.get("days")) state.days = q.get("days");
+  if (q.get("split") === "1") state.split = true;
+  const facs = q.getAll("facility").filter(Boolean);
+  if (facs.length) state.sel = facs;
+})();
+
 /* ===== boot ===== */
 setPressed("#view-group", "view", state.view);
 setPressed("#type-group", "type", state.type);
