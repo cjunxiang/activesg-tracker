@@ -728,6 +728,69 @@ function buildGoTable(rows) {
   document.querySelector("#go-table").classList.toggle("split", state.split && canSplit());
 }
 
+/** One line per weekday: average crowd by hour, for comparing days at a glance. */
+function buildDayChart(rows) {
+  const series = {}; // day -> hour -> {sum, n}
+  for (const r of rows) {
+    const d = new Date(r.t);
+    const day = (d.getDay() + 6) % 7;
+    const h = d.getHours();
+    if (h < HOURS.open || h >= HOURS.close) continue;
+    const slot = (series[day] = series[day] || {})[h] = series[day][h] || { sum: 0, n: 0 };
+    slot.sum += r.c;
+    slot.n += 1;
+  }
+
+  const labels = [];
+  for (let h = HOURS.open; h < HOURS.close; h++) labels.push(hourLabel(h));
+  const colors = ["#0000FF", "#00AA00", "#FF8000", "#8000FF", "#FF0000", "#008080", "#FF00FF"];
+
+  const datasets = DAYS.map((name, day) => ({
+    label: name,
+    // aligned to labels so the category axis needs no parsing config
+    data: labels.map((_, i) => {
+      const slot = (series[day] || {})[HOURS.open + i];
+      return slot && slot.n ? Math.round(slot.sum / slot.n) : null;
+    }),
+    borderColor: colors[day],
+    backgroundColor: colors[day],
+    borderWidth: 2,
+    pointRadius: 2,
+    tension: 0.25,
+    spanGaps: true,
+  }));
+
+  const canvas = document.getElementById("daychart");
+  if (!canvas) return;
+  if (window._daychart) window._daychart.destroy();
+  window._daychart = new Chart(canvas, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        x: { grid: { color: "#E8E8E8" }, ticks: { color: "#000", maxRotation: 0 } },
+        y: {
+          min: 0,
+          max: 100,
+          title: { display: true, text: "AVG CAPACITY %", font: { weight: "bold" } },
+          grid: { color: "#E8E8E8" },
+          ticks: { color: "#000" },
+        },
+      },
+      plugins: {
+        legend: { labels: { boxWidth: 14, boxHeight: 14, font: { weight: "bold" } } },
+        tooltip: {
+          backgroundColor: "#000080", titleColor: "#fff", bodyColor: "#FFFFCC",
+          borderColor: "#000", borderWidth: 2, cornerRadius: 0,
+        },
+      },
+    },
+  });
+}
+
 /* ===== stats + busy ===== */
 function renderStats(rows) {
   if (!rows.length) {
