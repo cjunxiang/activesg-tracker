@@ -620,8 +620,10 @@ function bucket(rows, facility) {
   return out;
 }
 
-function heatTableHtml(rows, caption) {
-  const buckets = bucket(rows);
+function heatTableHtml(rows, facility) {
+  // scope to the facility when comparing, otherwise aggregate everything
+  const buckets = bucket(rows, facility);
+  const caption = facility || "";
   const now = new Date();
   const nowDay = (now.getDay() + 6) % 7, nowHour = now.getHours();
 
@@ -672,7 +674,7 @@ function buildHeatmap(rows) {
     hint.textContent = canSplit()
       ? "tick Compare to split these into one heatmap each"
       : "tick 2+ facilities to compare them side by side";
-    const { html } = heatTableHtml(rows, "");
+    const { html } = heatTableHtml(rows, null);
     host.innerHTML = html;
   }
 }

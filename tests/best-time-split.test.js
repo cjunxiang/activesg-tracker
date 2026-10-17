@@ -67,7 +67,17 @@ check("7 day rows", rowsInTable === 7, `got ${rowsInTable}`);
 check("13 hour cells per row", cellsInFirstRow === 13, `got ${cellsInFirstRow}`);
 check("caption carries facility", html.includes("<caption>Gym A</caption>"));
 
-// 3) favourites sort first
+// 3) REGRESSION: each facility's heatmap must carry its own numbers, not the
+// aggregate (the first version ignored the facility argument and every split
+// heatmap came out identical)
+const htmlA = api.heatTableHtml(rows, "Gym A").html;
+const htmlB = api.heatTableHtml(rows, "Gym B").html;
+const firstCell = html => (html.match(/<td[^>]*>(\d+)/) || [])[1];
+check("Gym A heatmap shows 80", firstCell(htmlA) === "80", firstCell(htmlA));
+check("Gym B heatmap shows 20", firstCell(htmlB) === "20", firstCell(htmlB));
+check("split heatmaps differ", htmlA !== htmlB);
+
+// 4) favourites sort first
 const order = api.orderFacilities(rows);
 check("favourite ranked first", order[0] === "Gym B", order.join(","));
 
