@@ -389,6 +389,7 @@ async fn main() {
         .route("/", get(dashboard))
         .route("/api/data", get(api_data))
         .route("/api/visitors", get(api_visitors))
+        .route("/api/credits", get(api_credits))
         .route("/wallpaper", get(wallpaper))
         .route("/ingest", post(ingest))
         .with_state(state);
@@ -597,6 +598,36 @@ async fn dashboard(
         }
     }
     resp
+}
+
+async fn api_credits(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let keys = firecrawl_keys();
+    let now = chrono::Utc::now().with_timezone(&sgt());
+    let month = month_key(now);
+    let budget = per_key_monthly_budget();
+    let db = state.db.lock().unwrap();
+    let mut rows = Vec::new();
+    let mut total = 0i64;
+    for k in &keys {
+        let used = used_this_month(&db, &month, k);
+        total += used;
+        rows.push(serde_json::json!({
+            "key": format!("...{}", &k[k.len().saturating_sub(6)..]),
+            "used": used,
+            "left": budget - used,
+        }));
+    }
+    let body = serde_json::json!({
+        "month": month,
+        "per_key_budget": budget,
+        "total_budget": budget * keys.len().max(1) as i64,
+        "total_used": total,
+        "keys": rows,
+    });
+    (
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        body.to_string(),
+    )
 }
 
 async fn api_visitors(State(state): State<Arc<AppState>>) -> impl IntoResponse {
