@@ -603,6 +603,9 @@ async function loadBestTime() {
   buildHeatmap(heatCache);
   buildGoTable(heatCache);
   buildDayChart(heatCache);
+  // the statistics and "busiest now" panels are shared between views; without
+  // this they sit on "LOADING DATA..." for the whole Best Time session
+  renderStats(heatCache);
 }
 
 /** Bucket rows into day -> hour -> {sum,n}; optionally only one facility. */
