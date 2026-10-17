@@ -1,3 +1,8 @@
+# Preface
+
+Meant to meaningfully consume activeSG data, not overwhelm activeSG servers; 
+reasonable intervals, sufficient to understand crowd patterns for better decision making. (i'm sick of the crowd) 
+
 # ActiveSG Crowd Tracker
 
 Polls ActiveSG's public gym/pool crowd endpoint every 10 minutes and serves a
