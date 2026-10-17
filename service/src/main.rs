@@ -14,7 +14,20 @@ use std::{
 };
 
 const POLL_URL: &str = "https://activesg.gov.sg/api/trpc/pass.getFacilityCapacities?input=%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D";
-const POLL_SECS: u64 = 600;
+fn poll_interval_secs() -> u64 {
+    std::env::var("POLL_INTERVAL_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(600)
+}
+
+// Small non-deterministic offset so polls never land on a mechanical grid.
+fn jitter_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos() as u64 % 90)
+        .unwrap_or(0)
+}
 
 struct AppState {
     db: Mutex<Connection>,
@@ -82,7 +95,7 @@ async fn main() {
                     Ok(n) => println!("[poll] stored {n} facility readings"),
                     Err(e) => eprintln!("[poll] error: {e}"),
                 }
-                tokio::time::sleep(Duration::from_secs(POLL_SECS)).await;
+                tokio::time::sleep(Duration::from_secs(poll_interval_secs() + jitter_secs())).await;
             }
         });
     }
@@ -108,20 +121,17 @@ async fn poll_once(state: &AppState) -> Result<usize, Box<dyn std::error::Error 
     // curl-impersonate instead of using a native HTTP crate.
     let bin = std::env::var("IMPERSONATE_BIN").unwrap_or_else(|_| "curl-impersonate".into());
     let target = std::env::var("IMPERSONATE_TARGET").unwrap_or_else(|_| "chrome124".into());
-    let out = tokio::process::Command::new(bin)
-        .args([
-            "--impersonate",
-            &target,
-            "--compressed",
-            "-sS",
-            "-m",
-            "30",
-            "-w",
-            "\n%{http_code}",
-            POLL_URL,
-        ])
-        .output()
-        .await?;
+    // Optional residential proxy (IPRoyal/Webshare/ScraperAPI proxy mode):
+    // datacenter IPs are blocked regardless of fingerprint, so self-hosted
+    // polling needs a trusted egress route to be self-sustaining.
+    let proxy = std::env::var("IMPERSONATE_PROXY").unwrap_or_default();
+    let mut cmd = tokio::process::Command::new(bin);
+    cmd.args(["--impersonate", &target, "--compressed", "-sS", "-m", "30"]);
+    if !proxy.is_empty() {
+        cmd.args(["--proxy", &proxy]);
+    }
+    cmd.args(["-w", "\n%{http_code}", POLL_URL]);
+    let out = cmd.output().await?;
     let text = String::from_utf8_lossy(&out.stdout);
     if !out.status.success() {
         let head: String = text.chars().take(200).collect();

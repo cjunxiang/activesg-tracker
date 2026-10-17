@@ -252,8 +252,9 @@
           <label class="ctl" id="lbl-fac">Facilities (tick any; ★ = favourite)</label>
           <div id="facility-box" class="facbox" role="group" aria-labelledby="lbl-fac"></div>
           <div class="btn-group" style="margin-top:6px;">
+            <button class="btn" id="allsel" type="button">Select all</button>
+            <button class="btn" id="clearsel" type="button">Deselect all</button>
             <button class="btn" id="pin" type="button" title="Star the ticked facilities">★ Pin favourites</button>
-            <button class="btn" id="clearsel" type="button">Clear selection</button>
           </div>
           <span class="hint" id="fac-hint"></span>
         </div>
@@ -763,6 +764,13 @@ document.getElementById("range-group").addEventListener("click", e => {
   state.days = e.target.dataset.days;
   LS.set("days", state.days);
   setPressed("#range-group", "days", state.days);
+  load();
+});
+document.getElementById("allsel").addEventListener("click", () => {
+  state.sel = [...document.querySelectorAll("#facility-box input")].map(i => i.value);
+  LS.set("sel", state.sel);
+  for (const i of document.querySelectorAll("#facility-box input")) i.checked = true;
+  updateHint();
   load();
 });
 document.getElementById("pin").addEventListener("click", () => {

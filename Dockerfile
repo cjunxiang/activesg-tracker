@@ -23,10 +23,11 @@ RUN case "$TARGETARCH" in \
       && rm /tmp/ci.tar.gz \
       && /usr/local/bin/curl-impersonate --version >/dev/null
 COPY --from=build /app/target/release/activesg-tracker /usr/local/bin/tracker
-COPY data/activesg-capacities.csv /data/activesg-capacities.csv
+# Seed CSV must live OUTSIDE /data: the volume shadows anything baked there.
+COPY data/activesg-capacities.csv /opt/seed/activesg-capacities.csv
 WORKDIR /data
 ENV DB_PATH=/data/capacities.db \
-    SEED_CSV=/data/activesg-capacities.csv \
+    SEED_CSV=/opt/seed/activesg-capacities.csv \
     IMPERSONATE_BIN=/usr/local/bin/curl-impersonate \
     IMPERSONATE_TARGET=chrome124
 EXPOSE 3000
