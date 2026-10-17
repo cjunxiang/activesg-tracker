@@ -279,11 +279,12 @@ async fn api_data(
 }
 
 // Collectors that can solve Cloudflare (residential machine, CF Worker) push
-// the raw tRPC snapshot here; auth is a shared bearer token.
+// the raw tRPC snapshot here; auth is a shared bearer token. Accepts either
+// the full tRPC envelope or the inner snapshot object.
 async fn ingest(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Snapshot>,
+    Json(value): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     let expected = std::env::var("INGEST_TOKEN").unwrap_or_default();
     let got = headers
@@ -294,6 +295,14 @@ async fn ingest(
     if expected.is_empty() || got != expected {
         return (StatusCode::UNAUTHORIZED, "bad token").into_response();
     }
+    let inner = value
+        .pointer("/result/data/json")
+        .cloned()
+        .unwrap_or(value);
+    let body: Snapshot = match serde_json::from_value(inner) {
+        Ok(b) => b,
+        Err(e) => return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(),
+    };
     let ts = body.timestamp;
     let db = state.db.lock().unwrap();
     let mut inserted = 0;
