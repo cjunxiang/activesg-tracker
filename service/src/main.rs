@@ -327,6 +327,12 @@ async fn api_data(
     let days = params.get("days").cloned().unwrap_or_else(|| "30".into());
     // facility=JSON array string, e.g. ["Bishan ActiveSG Gym"]
     let facility = params.get("facility").cloned().unwrap_or_default();
+    // back-compat: old clients sent a bare name; wrap it into the array form
+    let facs = if facility.is_empty() || facility.starts_with('[') {
+        facility
+    } else {
+        serde_json::to_string(&facility).unwrap_or_default()
+    };
     let ftype = params.get("type").cloned().unwrap_or_default();
 
     let (gym, pool) = match ftype.as_str() {
@@ -365,7 +371,7 @@ async fn api_data(
         .query_map(
             rusqlite::named_params! {
                 ":days": cutoff,
-                ":facs": facility,
+                ":facs": facs,
                 ":gym": gym,
                 ":pool": pool,
             },
