@@ -719,8 +719,10 @@ function buildGoTable(rows) {
              `<td class="mono">${c.n}</td></tr>`;
     }).join("");
   }
+  const MIN_SAMPLES = 3;
+  const slots = new Set(rows.map(r => r.t)).size;
   document.querySelector("#go-table tbody").innerHTML = out ||
-    '<tr><td colspan="6" style="text-align:center;">no data yet</td></tr>';
+    `<tr><td colspan="6" style="text-align:center;">collecting - a slot needs ${MIN_SAMPLES} readings before it can be judged (${rows.length} readings across ${slots} snapshots so far)</td></tr>`;
 
   document.querySelector("#go-table").classList.toggle("split", state.split && canSplit());
 }
