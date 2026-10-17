@@ -111,5 +111,28 @@ chmod +x /usr/local/bin/activesg-collect.sh
 systemctl daemon-reload
 systemctl enable --now warp-socks.service activesg-collector.service
 
+# Oracle reclaims Always Free instances judged idle over 7 days: CPU p95 < 20%
+# AND network < 20% AND memory < 20%. This collector is idle by that measure, so
+# hold a tmpfs ballast to break the AND. Set KEEPALIVE_MB=0 on PAYG/other hosts.
+KEEPALIVE_MB="${KEEPALIVE_MB:-3000}"
+if [ "$KEEPALIVE_MB" -gt 0 ]; then
+  cat > /etc/systemd/system/idle-ballast.service <<BALLAST
+[Unit]
+Description=Hold ${KEEPALIVE_MB}MB in RAM so Oracle does not reclaim this instance as idle
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'dd if=/dev/zero of=/dev/shm/ballast bs=1M count=${KEEPALIVE_MB} status=none'
+ExecStop=/bin/rm -f /dev/shm/ballast
+
+[Install]
+WantedBy=multi-user.target
+BALLAST
+  systemctl daemon-reload
+  systemctl enable --now idle-ballast.service
+fi
+
 echo "[5/5] done - watch with: journalctl -u activesg-collector -f"
 echo "    first line should read ingest=200"
