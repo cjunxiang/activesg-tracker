@@ -58,11 +58,47 @@ def per_day() -> int:
     return n
 
 
+def count_per_day(interval: int, open_from: dt.time = OPEN_FROM,
+                  open_to: dt.time = OPEN_TO) -> int:
+    start = _at(dt.date(2026, 1, 1), open_from)
+    end = _at(dt.date(2026, 1, 1), open_to)
+    span = int((end - start).total_seconds() // 60)
+    return span // interval + 1
+
+
+def frontier(open_from: dt.time = OPEN_FROM, open_to: dt.time = OPEN_TO) -> None:
+    """Which cadences fit the free monthly credit budget, and by how much."""
+    print(f"window {open_from:%H:%M}-{open_to:%H:%M} SGT, "
+          f"{FREE_CREDITS_PER_MONTH} free credits/month\n")
+    print(f"{'interval':>9} {'polls/day':>10} {'28d':>6} {'31d':>6}  verdict")
+    for interval in (30, 29, 28, 27, 26, 25, 24, 20, 15, 10):
+        n = count_per_day(interval, open_from, open_to)
+        worst = n * 31
+        spare = FREE_CREDITS_PER_MONTH - worst
+        if spare >= 50:
+            verdict = f"fits, {spare} spare"
+        elif spare >= 0:
+            verdict = f"fits, only {spare} spare - no retry room"
+        else:
+            verdict = f"over by {-spare} - needs paid tier"
+        print(f"{interval:>7}min {n:>10} {n * 28:>6} {worst:>6}  {verdict}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--day", type=dt.date.fromisoformat, default=None)
+    ap.add_argument("--frontier", action="store_true",
+                    help="show which intervals fit the free credit budget")
+    ap.add_argument("--from", dest="open_from", type=dt.time.fromisoformat,
+                    default=OPEN_FROM, help="window start, e.g. 08:00")
+    ap.add_argument("--to", dest="open_to", type=dt.time.fromisoformat,
+                    default=OPEN_TO, help="window end, e.g. 21:00")
     args = ap.parse_args()
+
+    if args.frontier:
+        frontier(args.open_from, args.open_to)
+        return
 
     day = args.day or dt.datetime.now(SGT).date()
     todays = slots(day, args.seed)
