@@ -210,6 +210,7 @@
         </span>
       </div>
       <span class="sr-only">Data refreshes every 10 minutes. Use the Best Time view to pick a quiet hour.</span>
+      <div class="error-line mono" id="fatal" role="alert"></div>
     </div>
   </section>
 
@@ -761,9 +762,21 @@ async function loadVisitors() {
 
 function showError(msg) {
   const el = document.getElementById("error-line");
+  if (el) { el.textContent = "ERROR: " + msg; el.style.display = "block"; }
+  showFatal(msg);
+}
+
+/** Errors must be visible on any view - a hidden panel is not a place to hide them. */
+function showFatal(msg) {
+  const el = document.getElementById("fatal");
+  if (!el) return;
   el.textContent = "ERROR: " + msg;
   el.style.display = "block";
 }
+
+window.addEventListener("error", e => showFatal(e.message));
+window.addEventListener("unhandledrejection", e =>
+  showFatal(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
 
 async function load() {
   const err = document.getElementById("error-line");
