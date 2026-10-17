@@ -799,7 +799,8 @@ document.getElementById("shade").checked = state.shade;
 (async () => {
   // full name list drives the listbox; falls back to whatever the range returns
   try {
-    const rows = await fetchRows(new URLSearchParams({ days: "1" }));
+    let rows = await fetchRows(new URLSearchParams({ days: "1" }));
+    if (!rows.length) rows = await fetchRows(new URLSearchParams({ days: "max" })); // right after a deploy there may be no recent readings
     allNames = [...new Set(rows.map(r => r.f))];
   } catch {}
   rebuildFacilityBox();
