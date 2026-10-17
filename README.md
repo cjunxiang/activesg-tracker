@@ -36,3 +36,6 @@ where a Railway volume should be mounted.
 - Cloudflare front-door: plain HTTP clients may receive 403 from datacenter
   IPs. If polls fail, the fallback ladder is curl-impersonate, then a real
   browser runtime.
+
+## Historical Data Source Credits
+Historical datasource from https://github.com/frizensami/activesg-capacities
