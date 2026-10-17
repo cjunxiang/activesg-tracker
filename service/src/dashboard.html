@@ -24,13 +24,8 @@
     margin: 0; color: var(--fg);
     font: 14px/1.5 "MS Sans Serif", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--bg);
-    background-image:
-      linear-gradient(45deg, #b8b8b8 25%, transparent 25%),
-      linear-gradient(-45deg, #b8b8b8 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #b8b8b8 75%),
-      linear-gradient(-45deg, transparent 75%, #b8b8b8 75%);
-    background-size: 4px 4px;
-    background-position: 0 0, 0 2px, 2px -2px, -2px 0px;
+    background-image: url(/wallpaper);
+    background-size: cover; background-position: center; background-attachment: fixed;
   }
   ::selection { background: var(--title-a); color: #fff; }
   main { max-width: 1024px; margin: 0 auto; padding: 16px; }
@@ -61,7 +56,7 @@
     0% { color: #ff0000; } 17% { color: #ff8000; } 33% { color: #ffff00; }
     50% { color: #00ff00; } 67% { color: #0080ff; } 83% { color: #8000ff; } 100% { color: #ff0000; }
   }
-  .sub { font-size: 12px; color: var(--muted); }
+  .sub { font-size: 12px; color: var(--fg); }
   .mono { font-family: "Courier New", Courier, monospace; }
   hr.groove { border: none; height: 4px; margin: 16px 0;
     background: linear-gradient(to bottom, var(--muted) 0%, var(--muted) 50%, #ffffff 50%, #ffffff 100%); }
@@ -84,13 +79,17 @@
   }
   .btn-group { display: inline-flex; gap: 6px; flex-wrap: wrap; }
   label.ctl { font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px; }
-  select {
+  select, input[listbox] {
     border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
-    background: #fff; color: #000; padding: 7px 8px; font-size: 13px; font-family: inherit;
+    background: #fff; color: #000; padding: 5px 6px; font-size: 13px; font-family: inherit;
     max-width: 100%;
   }
+  select[multiple] { width: 100%; }
+  select[multiple] option:checked { background: var(--title-a); color: #fff; font-weight: bold; }
   .checkline { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; }
   .ctrl-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+  .hint { font-size: 11px; color: #000; background: var(--tertiary); border: 2px solid;
+    border-color: #fff #808080 #808080 #fff; padding: 2px 6px; display: none; }
 
   /* ===== marquee ===== */
   .marquee { overflow: hidden; border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
@@ -129,18 +128,42 @@
   .tag.gym { background: var(--secondary); }
   .tag.pool { background: var(--accent); }
 
+  /* ===== heatmap ===== */
+  table.heat { border-collapse: collapse; width: 100%; font-size: 11px; }
+  table.heat th { background: var(--bg); border: 2px solid var(--muted); padding: 3px 2px;
+    font-size: 10px; text-transform: uppercase; }
+  table.heat td { border: 2px solid var(--muted); padding: 4px 2px; text-align: center;
+    font-family: "Courier New", Courier, monospace; font-weight: bold; min-width: 30px; }
+  table.heat td.rowhead { background: var(--bg); font-size: 10px; text-transform: uppercase; }
+  table.heat td.nodata { background: #E8E8E8; color: var(--muted); font-weight: normal; }
+  table.heat td.now { outline: 3px solid #000; outline-offset: -3px; }
+  .heat-legend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 11px; }
+  .heat-legend i { width: 14px; height: 14px; display: inline-block; border: 2px solid var(--muted); vertical-align: -2px; }
+
+  /* ===== ads ===== */
+  .ad {
+    border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
+    background: var(--panel-yellow); text-align: center; padding: 14px 10px; margin-bottom: 16px;
+  }
+  .ad .ad-head { font-family: "Arial Black", Impact, sans-serif; font-size: 15px; letter-spacing: 0.1em; }
+  .ad .ad-sub { font-size: 11px; color: #000; margin-top: 2px; }
+  .ad a { color: var(--accent); font-weight: bold; }
+  .ad a:hover { color: var(--secondary); }
+
   /* ===== footer ===== */
   .construction {
     background: repeating-linear-gradient(45deg, #ffff00, #ffff00 10px, #000000 10px, #000000 20px);
     height: 18px; border: 2px solid; border-color: var(--bevel-out-bc);
   }
-  .footer-note { font-size: 11px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .footer-panel { margin-top: 16px; padding: 10px; text-align: center; }
+  .footer-note { font-size: 11px; color: #000; }
   .footer-note a { color: var(--accent); text-decoration: underline; }
   .footer-note a:hover { color: var(--secondary); }
   .squares { display: flex; gap: 6px; justify-content: center; margin: 14px 0 4px; }
   .squares i { width: 16px; height: 16px; display: block; border: 2px solid; border-color: var(--bevel-out-bc); }
   .error-line { color: var(--secondary); font-weight: bold; display: none; padding: 8px; }
-  .legend-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .legend-note { font-size: 11px; color: #000; margin-top: 6px; }
+  .hidden { display: none !important; }
 
   @media (prefers-reduced-motion: reduce) {
     .text-rainbow { animation: none; color: var(--secondary); }
@@ -161,16 +184,23 @@
     <div class="win-body">
       <h1 id="hero-title" class="text-rainbow">ActiveSG Crowd History</h1>
       <div class="sub">Gym &amp; swimming pool crowd levels, snapshotted every 10 minutes.<span class="badge-new" aria-hidden="true">LIVE!</span><span class="sr-only">Live data.</span></div>
+      <div class="sub" style="margin-top:6px;"><strong>UNOFFICIAL.</strong> Not affiliated with, endorsed by, or connected to ActiveSG or SportSG. Source of truth: <a href="https://activesg.gov.sg/gym-pool-crowd">activesg.gov.sg/gym-pool-crowd</a></div>
       <hr class="groove">
       <div class="marquee" aria-hidden="true">
-        <span class="marquee-track" id="marquee-track">
-          <span>*** WELCOME TO ACTIVESG CROWD TRACKER *** <span class="r">SKIP THE CROWDS!</span> *** <span class="b">DATA REFRESHES EVERY 10 MINUTES</span> *** <span class="g">BEAT THE QUEUE, PICK THE RIGHT HOUR</span> *** </span>
-          <span>*** WELCOME TO ACTIVESG CROWD TRACKER *** <span class="r">SKIP THE CROWDS!</span> *** <span class="b">DATA REFRESHES EVERY 10 MINUTES</span> *** <span class="g">BEAT THE QUEUE, PICK THE RIGHT HOUR</span> *** </span>
+        <span class="marquee-track">
+          <span>*** WELCOME TO ACTIVESG CROWD TRACKER *** <span class="r">SKIP THE CROWDS!</span> *** <span class="b">PICK YOUR TIMING WITH THE BEST TIME VIEW</span> *** <span class="g">STAR YOUR FAVOURITE FACILITIES</span> *** </span>
+          <span>*** WELCOME TO ACTIVESG CROWD TRACKER *** <span class="r">SKIP THE CROWDS!</span> *** <span class="b">PICK YOUR TIMING WITH THE BEST TIME VIEW</span> *** <span class="g">STAR YOUR FAVOURITE FACILITIES</span> *** </span>
         </span>
       </div>
-      <span class="sr-only" id="marquee-static">Data refreshes every 10 minutes. Use the filters to pick a quiet hour.</span>
+      <span class="sr-only">Data refreshes every 10 minutes. Use the Best Time view to pick a quiet hour.</span>
     </div>
   </section>
+
+  <!-- ===== ad slot: banner ===== -->
+  <aside class="ad" aria-label="Advertisement slot">
+    <div class="ad-head">YOUR AD HERE - 468 x 60</div>
+    <div class="ad-sub">this space keeps the trackers running. <a href="mailto:ads@activesg-tracker.example?subject=Ad%20slot%20468x60">BOOK THIS SPOT</a></div>
+  </aside>
 
   <!-- ===== control panel ===== -->
   <section class="win outset" aria-labelledby="controls-title">
@@ -181,16 +211,19 @@
     <div class="win-body">
       <div class="ctrl-row">
         <div>
+          <label class="ctl" id="lbl-view">View</label>
+          <span class="btn-group" id="view-group" role="group" aria-labelledby="lbl-view">
+            <button class="btn" data-view="timeline" aria-pressed="true">Timeline</button>
+            <button class="btn" data-view="besttime" aria-pressed="false">Best Time</button>
+          </span>
+        </div>
+        <div>
           <label class="ctl" id="lbl-type">Facility type</label>
           <span class="btn-group" id="type-group" role="group" aria-labelledby="lbl-type">
             <button class="btn" data-type="" aria-pressed="true">Both</button>
             <button class="btn" data-type="pool" aria-pressed="false">Swim</button>
             <button class="btn" data-type="gym" aria-pressed="false">Gym</button>
           </span>
-        </div>
-        <div>
-          <label class="ctl" for="facility">Facility</label>
-          <select id="facility"><option value="">All facilities</option></select>
         </div>
         <div>
           <label class="ctl" id="lbl-range">Quick range</label>
@@ -206,17 +239,28 @@
       </div>
       <hr class="groove">
       <div class="ctrl-row">
-        <span class="checkline">
-          <input type="checkbox" id="shade" checked>
-          <label for="shade">Shade non-operating hours</label>
-        </span>
-        <span class="sub mono">hours (indicative): gyms 07:00-22:00 | pools 08:00-21:30</span>
+        <div style="flex:1 1 320px;">
+          <label class="ctl" for="facility">Facilities (ctrl / shift-click for several; ★ = favourite)</label>
+          <select id="facility" multiple size="7" aria-describedby="fac-hint"></select>
+          <div class="btn-group" style="margin-top:6px;">
+            <button class="btn" id="pin" type="button" title="Star the highlighted facilities">★ Pin favourites</button>
+            <button class="btn" id="clearsel" type="button">Clear selection</button>
+          </div>
+          <span class="hint" id="fac-hint"></span>
+        </div>
+        <div>
+          <span class="checkline">
+            <input type="checkbox" id="shade" checked>
+            <label for="shade">Shade non-operating hours</label>
+          </span>
+          <span class="sub mono" style="display:block;margin-top:8px;">hours (indicative):<br>gyms 07:00-22:00<br>pools 08:00-21:30</span>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ===== chart window ===== -->
-  <section class="win outset" aria-labelledby="chart-title">
+  <!-- ===== timeline window ===== -->
+  <section class="win outset" id="timeline-window" aria-labelledby="chart-title">
     <div class="titlebar">
       <span id="chart-title">Crowd Level Chart - Chart.js 95</span>
       <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
@@ -229,6 +273,36 @@
         <div class="error-line mono" id="error-line"></div>
       </div>
       <div class="legend-note mono">&#9619; shaded band = facility likely closed (indicative hours, not official)</div>
+    </div>
+  </section>
+
+  <!-- ===== best time window ===== -->
+  <section class="win outset hidden" id="besttime-window" aria-labelledby="best-title">
+    <div class="titlebar">
+      <span id="best-title">Best Time To Go - average week, all history</span>
+      <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
+    </div>
+    <div class="win-body">
+      <div class="content-inset" style="padding:10px;overflow-x:auto;">
+        <table class="heat" id="heat-table" aria-label="Average crowd by day of week and hour"></table>
+      </div>
+      <div class="heat-legend" aria-hidden="true">
+        <span>AVERAGE CROWD:</span>
+        <i style="background:#00AA00"></i> empty
+        <i style="background:#7CFC00"></i> quiet
+        <i style="background:#FFFF00"></i> moderate
+        <i style="background:#FF8000"></i> busy
+        <i style="background:#FF0000"></i> packed
+        <span class="mono">(thick border = right now)</span>
+      </div>
+      <hr class="groove">
+      <div class="content-inset" style="padding:0;">
+        <table class="grid" id="go-table">
+          <thead><tr><th>Verdict</th><th>Day</th><th>Time</th><th>Avg crowd</th><th>Samples</th></tr></thead>
+          <tbody><tr><td colspan="5" style="text-align:center;">loading...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="legend-note">averages over all stored history for the current facility scope; best = quietest slots worth going</div>
     </div>
   </section>
 
@@ -259,16 +333,28 @@
     </div>
   </section>
 
+  <!-- ===== ad slot: leaderboard ===== -->
+  <aside class="ad" aria-label="Advertisement slot">
+    <div class="ad-head">AD SPACE - 728 x 90</div>
+    <div class="ad-sub">your banner could be flexing here. <a href="mailto:ads@activesg-tracker.example?subject=Ad%20slot%20728x90">RESERVE IT</a></div>
+  </aside>
+
   <div class="construction" aria-hidden="true"></div>
-  <div class="squares" aria-hidden="true">
-    <i style="background:#FF0000"></i><i style="background:#00AA00"></i><i style="background:#0000FF"></i>
-    <i style="background:#FFFF00"></i><i style="background:#FF00FF"></i><i style="background:#00FFFF"></i>
-  </div>
-  <p class="footer-note">
-    Best viewed at 800x600 with Netscape Navigator 4.0 &nbsp;|&nbsp; Visitors:
-    <span class="mono" id="visitors">0000000</span>
-    &nbsp;|&nbsp; <a href="https://github.com/cjunxiang/activesg-tracker">Sign our guestbook (GitHub)</a>
-  </p>
+  <section class="footer-panel outset">
+    <div class="squares" aria-hidden="true">
+      <i style="background:#FF0000"></i><i style="background:#00AA00"></i><i style="background:#0000FF"></i>
+      <i style="background:#FFFF00"></i><i style="background:#FF00FF"></i><i style="background:#00FFFF"></i>
+    </div>
+    <p class="footer-note">
+      <strong>UNOFFICIAL PROJECT</strong> - not affiliated with, endorsed by, or connected to ActiveSG or Sport Singapore (SportSG).<br>
+      Official crowd page: <a href="https://activesg.gov.sg/gym-pool-crowd">https://activesg.gov.sg/gym-pool-crowd</a>
+    </p>
+    <p class="footer-note">
+      Best viewed at 800x600 with Netscape Navigator 4.0 &nbsp;|&nbsp; Visitors:
+      <span class="mono" id="visitors">loading...</span>
+      &nbsp;|&nbsp; <a href="https://github.com/cjunxiang/activesg-tracker">Sign our guestbook (GitHub)</a>
+    </p>
+  </section>
 </main>
 
 <script>
@@ -276,14 +362,33 @@ Chart.defaults.font.family = '"MS Sans Serif","Segoe UI",Tahoma,sans-serif';
 Chart.defaults.font.size = 12;
 Chart.defaults.color = '#000';
 
-const state = { type: "", facility: "", days: "7", shade: true };
-const GYM_COLOR = "#FF0000", POOL_COLOR = "#0000FF", SOLO_COLOR = "#000080";
+const LS = {
+  get(k, d) { try { const v = JSON.parse(localStorage.getItem("at95." + k)); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("at95." + k, JSON.stringify(v)); } catch {} }
+};
+
+const state = {
+  view: LS.get("view", "timeline"),
+  type: LS.get("type", ""),
+  days: LS.get("days", "7"),
+  sel: LS.get("sel", []),     // selected facility names (multi)
+  favs: LS.get("favs", []),   // starred names (persist across visits)
+  shade: LS.get("shade", true)
+};
+const PALETTE = ["#000080", "#FF0000", "#00AA00", "#FF8000", "#8000FF", "#008080"];
+const POOL_COLOR = "#0000FF", GYM_COLOR = "#FF0000";
 const POOL_OPEN = 8, POOL_CLOSE = 21.5, GYM_OPEN = 7, GYM_CLOSE = 22;
+const HOURS = { open: 7, close: 22 }; // display window
+let allNames = [];        // every known facility
+let heatCache = null, heatScope = "";
+
+const typeOf = f => (f.toUpperCase().includes("GYM") ? "gym" : "pool");
+const inScope = f => (!state.type || typeOf(f) === state.type);
 
 function hoursFor(type) {
   if (type === "gym") return [GYM_OPEN, GYM_CLOSE];
   if (type === "pool") return [POOL_OPEN, POOL_CLOSE];
-  return [POOL_OPEN, GYM_CLOSE]; // both: shade only hours nothing is open
+  return [POOL_OPEN, GYM_CLOSE];
 }
 
 const hoursPlugin = {
@@ -315,16 +420,46 @@ function band(ctx, x, area, t1, t2) {
   if (r > l) ctx.fillRect(l, area.top, r - l, area.bottom - area.top);
 }
 
-async function fetchRows(extraType) {
-  const params = new URLSearchParams({ days: state.days });
-  const t = extraType !== undefined ? extraType : state.type;
-  if (t) params.set("type", t);
-  if (state.facility) params.set("facility", state.facility);
+async function fetchRows(params) {
   const res = await fetch("/api/data?" + params);
   if (!res.ok) throw new Error("HTTP " + res.status);
   return res.json();
 }
+function scopeParams(days) {
+  const p = new URLSearchParams({ days });
+  if (state.sel.length) p.set("facility", JSON.stringify(state.sel)); // type ignored when facilities picked
+  else if (state.type) p.set("type", state.type);
+  return p;
+}
 
+/* ===== facility listbox ===== */
+function rebuildFacilitySelect() {
+  const sel = document.getElementById("facility");
+  const scoped = allNames.filter(inScope);
+  const rank = n => (state.favs.includes(n) ? 0 : 1);
+  scoped.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  sel.innerHTML = "";
+  for (const n of scoped) {
+    const o = document.createElement("option");
+    o.value = n;
+    o.textContent = (state.favs.includes(n) ? "★ " : "") + n;
+    if (state.sel.includes(n)) o.selected = true;
+    sel.appendChild(o);
+  }
+  // deconfliction: drop selections that left the current scope
+  state.sel = state.sel.filter(n => scoped.includes(n));
+  LS.set("sel", state.sel);
+  updateHint();
+}
+function updateHint() {
+  const h = document.getElementById("fac-hint");
+  if (state.sel.length) {
+    h.textContent = state.sel.length + " selected - type filter not applied to chart";
+    h.style.display = "inline-block";
+  } else h.style.display = "none";
+}
+
+/* ===== timeline ===== */
 function toAvgSeries(rows) {
   const byTs = new Map();
   for (const r of rows) {
@@ -335,60 +470,42 @@ function toAvgSeries(rows) {
     .map(([t, vals]) => ({ x: t, y: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }));
 }
 
-function showError(msg) {
-  const el = document.getElementById("error-line");
-  el.textContent = "ERROR: " + msg;
-  el.style.display = "block";
-}
-
-async function load() {
-  const err = document.getElementById("error-line");
-  err.style.display = "none";
-  try {
-    let datasets, allRows;
-    if (!state.type && !state.facility) {
-      const [pools, gyms] = await Promise.all([fetchRows("pool"), fetchRows("gym")]);
-      allRows = pools.concat(gyms);
-      datasets = [
-        { label: "Pools (avg)", data: toAvgSeries(pools), borderColor: POOL_COLOR, borderWidth: 2.5, pointRadius: 0, tension: 0.25 },
-        { label: "Gyms (avg)", data: toAvgSeries(gyms), borderColor: GYM_COLOR, borderWidth: 2.5, pointRadius: 0, tension: 0.25 }
-      ];
-    } else {
-      allRows = await fetchRows();
-      const byFacility = new Map();
-      for (const r of allRows) {
-        if (!byFacility.has(r.f)) byFacility.set(r.f, []);
-        byFacility.get(r.f).push([r.t, r.c]);
-      }
-      datasets = [...byFacility.entries()].map(([name, pts], i) => ({
-        label: name,
-        data: pts.map(([t, c]) => ({ x: t, y: c })),
-        borderColor: byFacility.size === 1 ? SOLO_COLOR : ["#0000FF", "#FF0000", "#00AA00", "#FF8000", "#8000FF"][i % 5],
-        borderWidth: 2, pointRadius: 0, tension: 0.25
-      }));
+async function loadTimeline() {
+  let datasets, allRows;
+  if (state.sel.length) {
+    allRows = await fetchRows(scopeParams(state.days));
+    const byFacility = new Map();
+    for (const r of allRows) {
+      if (!byFacility.has(r.f)) byFacility.set(r.f, []);
+      byFacility.get(r.f).push([r.t, r.c]);
     }
-    rebuildFacilitySelect(allRows);
-    renderChart(datasets);
-    renderStats(allRows);
-  } catch (e) {
-    showError("Could not load data (" + e.message + "). Is the tracker running?");
+    datasets = [...byFacility.entries()].map(([name, pts], i) => ({
+      label: (state.favs.includes(name) ? "★ " : "") + name,
+      data: pts.map(([t, c]) => ({ x: t, y: c })),
+      borderColor: byFacility.size === 1 ? PALETTE[0] : PALETTE[i % PALETTE.length],
+      borderWidth: 2, pointRadius: 0, tension: 0.25
+    }));
+  } else if (!state.type) {
+    const [pools, gyms] = await Promise.all([fetchRows(scopeParams(state.days) + "&type=pool"), fetchRows(scopeParams(state.days) + "&type=gym")]);
+    allRows = pools.concat(gyms);
+    datasets = [
+      { label: "Pools (avg)", data: toAvgSeries(pools), borderColor: POOL_COLOR, borderWidth: 2.5, pointRadius: 0, tension: 0.25 },
+      { label: "Gyms (avg)", data: toAvgSeries(gyms), borderColor: GYM_COLOR, borderWidth: 2.5, pointRadius: 0, tension: 0.25 }
+    ];
+  } else {
+    allRows = await fetchRows(scopeParams(state.days));
+    const byFacility = new Map();
+    for (const r of allRows) {
+      if (!byFacility.has(r.f)) byFacility.set(r.f, []);
+      byFacility.get(r.f).push([r.t, r.c]);
+    }
+    datasets = [...byFacility.entries()].map(([name, pts], i) => ({
+      label: name, data: pts.map(([t, c]) => ({ x: t, y: c })),
+      borderColor: PALETTE[i % PALETTE.length], borderWidth: 2, pointRadius: 0, tension: 0.25
+    }));
   }
-}
-
-function rebuildFacilitySelect(rows) {
-  const sel = document.getElementById("facility");
-  const names = [...new Set(rows.map(r => r.f))].sort();
-  const current = state.facility;
-  sel.innerHTML = "";
-  const all = document.createElement("option");
-  all.value = all.textContent = "All facilities";
-  sel.appendChild(all);
-  for (const n of names) {
-    const o = document.createElement("option");
-    o.value = o.textContent = n;
-    sel.appendChild(o);
-  }
-  if (names.includes(current)) sel.value = current;
+  renderChart(datasets);
+  renderStats(allRows);
 }
 
 function renderChart(datasets) {
@@ -410,8 +527,7 @@ function renderChart(datasets) {
         legend: { labels: { boxWidth: 14, boxHeight: 14, font: { weight: "bold" } } },
         tooltip: {
           backgroundColor: "#000080", titleColor: "#fff", bodyColor: "#FFFFCC",
-          borderColor: "#000", borderWidth: 2, cornerRadius: 0, displayColors: true,
-          titleFont: { weight: "bold" }
+          borderColor: "#000", borderWidth: 2, cornerRadius: 0, displayColors: true
         }
       }
     },
@@ -419,6 +535,87 @@ function renderChart(datasets) {
   });
 }
 
+/* ===== best time heatmap ===== */
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function heatColor(v) {
+  if (v <= 20) return ["#00AA00", "#fff"];
+  if (v <= 40) return ["#7CFC00", "#000"];
+  if (v <= 60) return ["#FFFF00", "#000"];
+  if (v <= 80) return ["#FF8000", "#000"];
+  return ["#FF0000", "#fff"];
+}
+
+async function loadBestTime() {
+  const scope = JSON.stringify([state.type, state.sel, "max"]);
+  if (!heatCache || heatScope !== scope) {
+    heatCache = await fetchRows(scopeParams("max"));
+    heatScope = scope;
+  }
+  buildHeatmap(heatCache);
+  buildGoTable(heatCache);
+}
+
+function buildHeatmap(rows) {
+  const buckets = {}; // day -> hour -> {sum, n}
+  for (const r of rows) {
+    const d = new Date(r.t);
+    const day = (d.getDay() + 6) % 7; // Mon=0
+    const h = d.getHours();
+    if (h < HOURS.open || h >= HOURS.close) continue;
+    (buckets[day] = buckets[day] || {})[h] = buckets[day][h] || { sum: 0, n: 0 };
+    buckets[day][h].sum += r.c; buckets[day][h].n++;
+  }
+  const now = new Date();
+  const nowDay = (now.getDay() + 6) % 7, nowHour = now.getHours();
+
+  let html = '<thead><tr><th scope="col">Day</th>';
+  for (let h = HOURS.open; h < HOURS.close; h++) html += `<th scope="col">${String(h).padStart(2, "0")}</th>`;
+  html += "</tr></thead><tbody>";
+  for (let day = 0; day < 7; day++) {
+    html += `<tr><th scope="row" class="rowhead">${DAYS[day]}</th>`;
+    for (let h = HOURS.open; h < HOURS.close; h++) {
+      const b = (buckets[day] || {})[h];
+      if (!b || !b.n) { html += '<td class="nodata">·</td>'; continue; }
+      const avg = Math.round(b.sum / b.n);
+      const [bg, fg] = heatColor(avg);
+      const isNow = day === nowDay && h === nowHour;
+      html += `<td class="${isNow ? "now" : ""}" style="background:${bg};color:${fg};" ` +
+              `title="${DAYS[day]} ${String(h).padStart(2, "0")}:00 - avg ${avg}% over ${b.n} readings">${avg}</td>`;
+    }
+    html += "</tr>";
+  }
+  html += "</tbody>";
+  document.getElementById("heat-table").innerHTML = html;
+}
+
+function buildGoTable(rows) {
+  const buckets = {};
+  for (const r of rows) {
+    const d = new Date(r.t);
+    const day = (d.getDay() + 6) % 7;
+    const h = d.getHours();
+    if (h < HOURS.open || h >= HOURS.close) continue;
+    const key = day + ":" + h;
+    (buckets[key] = buckets[key] || { sum: 0, n: 0 });
+    buckets[key].sum += r.c; buckets[key].n++;
+  }
+  const cells = Object.entries(buckets)
+    .map(([k, v]) => ({ day: +k.split(":")[0], hour: +k.split(":")[1], avg: v.sum / v.n, n: v.n }))
+    .filter(c => c.n >= 3);
+  const label = c => `${DAYS[c.day]} ${String(c.hour).padStart(2, "0")}:00`;
+  const quiet = cells.slice().sort((a, b) => a.avg - b.avg).slice(0, 5);
+  const busy = cells.slice().sort((a, b) => b.avg - a.avg).slice(0, 3);
+  const rowsHtml = c => {
+    const [bg, fg] = heatColor(Math.round(c.avg));
+    const verdict = c.avg <= 40 ? '<span class="tag pool">GO!</span>' : '<span class="tag gym">BUSY</span>';
+    return `<tr><td>${verdict}</td><td>${DAYS[c.day]}</td><td class="mono">${label(c).split(" ")[1]}</td>` +
+           `<td class="mono" style="background:${bg};color:${fg};font-weight:bold;">${Math.round(c.avg)}%</td>` +
+           `<td class="mono">${c.n}</td></tr>`;
+  };
+  document.querySelector("#go-table tbody").innerHTML = quiet.map(rowsHtml).join("") + busy.map(rowsHtml).join("");
+}
+
+/* ===== stats + busy ===== */
 function renderStats(rows) {
   if (!rows.length) {
     document.getElementById("stats").textContent = "NO DATA IN RANGE. TRY A BIGGER RANGE.";
@@ -428,7 +625,6 @@ function renderStats(rows) {
   const latestTs = Math.max(...rows.map(r => r.t));
   const nowRows = rows.filter(r => r.t === latestTs);
   const avgNow = Math.round(nowRows.reduce((a, r) => a + r.c, 0) / nowRows.length);
-  const busy = nowRows.reduce((a, r) => (r.c > a.c ? r : a), nowRows[0]);
   const nFac = new Set(rows.map(r => r.f)).size;
   const when = new Date(latestTs).toLocaleString();
   document.getElementById("stats").innerHTML =
@@ -436,34 +632,115 @@ function renderStats(rows) {
     ' | <span class="lbl">FACILITIES:</span> ' + String(nFac).padStart(3, "0") +
     ' | <span class="lbl">AVG NOW:</span> ' + String(avgNow).padStart(3, "0") + "%" +
     ' | <span class="lbl">LAST SNAPSHOT:</span> ' + when;
-  document.getElementById("visitors").textContent = String(rows.length).padStart(7, "0");
 
   const top = [...nowRows].sort((a, b) => b.c - a.c).slice(0, 5);
-  const typeOf = f => (f.toUpperCase().includes("GYM") ? "GYM" : "SWIM");
   document.querySelector("#busy-table tbody").innerHTML = top.map((r, i) =>
-    `<tr><td class="mono">${i + 1}</td><td>${r.f}</td>` +
-    `<td><span class="tag ${typeOf(r.f) === "GYM" ? "gym" : "pool"}">${typeOf(r.f)}</span></td>` +
+    `<tr><td class="mono">${i + 1}</td><td>${(state.favs.includes(r.f) ? "★ " : "") + r.f}</td>` +
+    `<td><span class="tag ${typeOf(r.f)}">${typeOf(r.f).toUpperCase()}</span></td>` +
     `<td class="mono">${r.c}%</td></tr>`).join("");
 }
 
+async function loadVisitors() {
+  try {
+    const v = await (await fetch("/api/visitors")).json();
+    document.getElementById("visitors").textContent = String(v.visitors).padStart(7, "0");
+  } catch { document.getElementById("visitors").textContent = "???????"; }
+}
+
+function showError(msg) {
+  const el = document.getElementById("error-line");
+  el.textContent = "ERROR: " + msg;
+  el.style.display = "block";
+}
+
+async function load() {
+  const err = document.getElementById("error-line");
+  err.style.display = "none";
+  try {
+    if (state.view === "besttime") await loadBestTime();
+    else await loadTimeline();
+  } catch (e) {
+    showError("Could not load data (" + e.message + "). Is the tracker running?");
+  }
+}
+
+/* ===== wiring ===== */
+function setPressed(groupSel, attr, val) {
+  for (const b of document.querySelectorAll(groupSel + " button"))
+    b.setAttribute("aria-pressed", b.dataset[attr] === String(val) ? "true" : "false");
+}
+
+document.getElementById("view-group").addEventListener("click", e => {
+  if (e.target.dataset.view === undefined) return;
+  state.view = e.target.dataset.view;
+  LS.set("view", state.view);
+  setPressed("#view-group", "view", state.view);
+  document.getElementById("timeline-window").classList.toggle("hidden", state.view !== "timeline");
+  document.getElementById("besttime-window").classList.toggle("hidden", state.view !== "besttime");
+  load();
+});
 document.getElementById("type-group").addEventListener("click", e => {
   if (e.target.dataset.type === undefined) return;
   state.type = e.target.dataset.type;
-  for (const b of document.querySelectorAll("#type-group button")) b.setAttribute("aria-pressed", b === e.target ? "true" : "false");
-  state.facility = "";
+  LS.set("type", state.type);
+  setPressed("#type-group", "type", state.type);
+  rebuildFacilitySelect(); // deconfliction: options scoped to type
   load();
 });
 document.getElementById("range-group").addEventListener("click", e => {
   if (e.target.dataset.days === undefined) return;
   state.days = e.target.dataset.days;
-  for (const b of document.querySelectorAll("#range-group button")) b.setAttribute("aria-pressed", b === e.target ? "true" : "false");
+  LS.set("days", state.days);
+  setPressed("#range-group", "days", state.days);
   load();
 });
-document.getElementById("facility").addEventListener("change", e => { state.facility = e.target.value; load(); });
-document.getElementById("shade").addEventListener("change", e => { state.shade = e.target.checked; if (window._chart) window._chart.update(); });
-document.getElementById("refresh").addEventListener("click", load);
+document.getElementById("facility").addEventListener("change", e => {
+  state.sel = [...e.target.selectedOptions].map(o => o.value);
+  LS.set("sel", state.sel);
+  updateHint();
+  load();
+});
+document.getElementById("pin").addEventListener("click", () => {
+  const highlighted = [...document.getElementById("facility").selectedOptions].map(o => o.value);
+  for (const n of highlighted) {
+    const i = state.favs.indexOf(n);
+    if (i >= 0) state.favs.splice(i, 1); else state.favs.push(n);
+  }
+  LS.set("favs", state.favs);
+  rebuildFacilitySelect();
+  load();
+});
+document.getElementById("clearsel").addEventListener("click", () => {
+  state.sel = [];
+  LS.set("sel", state.sel);
+  for (const o of document.getElementById("facility").options) o.selected = false;
+  updateHint();
+  load();
+});
+document.getElementById("shade").addEventListener("change", e => {
+  state.shade = e.target.checked; LS.set("shade", state.shade);
+  if (window._chart) window._chart.update();
+});
+document.getElementById("refresh").addEventListener("click", () => { heatCache = null; load(); });
 
-load();
+/* ===== boot ===== */
+setPressed("#view-group", "view", state.view);
+setPressed("#type-group", "type", state.type);
+setPressed("#range-group", "days", state.days);
+document.getElementById("timeline-window").classList.toggle("hidden", state.view !== "timeline");
+document.getElementById("besttime-window").classList.toggle("hidden", state.view !== "besttime");
+document.getElementById("shade").checked = state.shade;
+
+(async () => {
+  // full name list drives the listbox; falls back to whatever the range returns
+  try {
+    const rows = await fetchRows(new URLSearchParams({ days: "1" }));
+    allNames = [...new Set(rows.map(r => r.f))];
+  } catch {}
+  rebuildFacilitySelect();
+  loadVisitors();
+  load();
+})();
 </script>
 </body>
 </html>

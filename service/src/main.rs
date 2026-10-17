@@ -61,7 +61,10 @@ async fn main() {
              capacity INTEGER NOT NULL,
              is_closed INTEGER NOT NULL DEFAULT 0);
          CREATE INDEX IF NOT EXISTS idx_cap_ts ON capacities(ts);
-         CREATE INDEX IF NOT EXISTS idx_cap_fac ON capacities(facility);",
+         CREATE INDEX IF NOT EXISTS idx_cap_fac ON capacities(facility);
+         CREATE TABLE IF NOT EXISTS visitors(
+             vid TEXT PRIMARY KEY,
+             first_seen INTEGER NOT NULL);",
     )
     .expect("init schema");
     let state = Arc::new(AppState { db: Mutex::new(db) });
@@ -87,6 +90,8 @@ async fn main() {
     let app = Router::new()
         .route("/", get(dashboard))
         .route("/api/data", get(api_data))
+        .route("/api/visitors", get(api_visitors))
+        .route("/wallpaper", get(wallpaper))
         .route("/ingest", post(ingest))
         .with_state(state);
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
@@ -193,20 +198,34 @@ fn seed_if_empty(state: &AppState) {
 // now (CC -> Community Centre, branding word order). Historical rows keep the
 // old names, so fold them onto the current names at startup. Idempotent.
 const RENAMES: &[(&str, &str)] = &[
-    ("ActiveSG Gym @ Ang Mo Kio CC", "ActiveSG Gym @ Ang Mo Kio Community Centre"),
-    ("Enabling Village ActiveSG Gym", "ActiveSG Gym @ Enabling Village"),
-    ("ActiveSG Gym @ Toa Payoh West CC", "ActiveSG Gym @ Toa Payoh West Community Centre"),
-    ("Jurong Lake Gardens Gym", "Jurong Lake Gardens ActiveSG Gym"),
+    (
+        "ActiveSG Gym @ Ang Mo Kio CC",
+        "ActiveSG Gym @ Ang Mo Kio Community Centre",
+    ),
+    (
+        "Enabling Village ActiveSG Gym",
+        "ActiveSG Gym @ Enabling Village",
+    ),
+    (
+        "ActiveSG Gym @ Toa Payoh West CC",
+        "ActiveSG Gym @ Toa Payoh West Community Centre",
+    ),
+    (
+        "Jurong Lake Gardens Gym",
+        "Jurong Lake Gardens ActiveSG Gym",
+    ),
     ("Senja-Cashew Gym", "Senja-Cashew ActiveSG Gym"),
 ];
 
 fn normalize_names(db: &Connection) {
     let mut changed = 0;
     for (old, new) in RENAMES {
-        changed += db.execute(
-            "UPDATE capacities SET facility = ?2 WHERE facility = ?1",
-            rusqlite::params![old, new],
-        ) .unwrap_or(0);
+        changed += db
+            .execute(
+                "UPDATE capacities SET facility = ?2 WHERE facility = ?1",
+                rusqlite::params![old, new],
+            )
+            .unwrap_or(0);
     }
     if changed > 0 {
         println!("[migrate] normalized {changed} rows to current facility names");
@@ -225,8 +244,58 @@ fn parse_csv_line(line: &str) -> Option<(String, i64, i64, bool)> {
     Some((facility.to_string(), ts_ms, cap, closed))
 }
 
-async fn dashboard() -> Html<&'static str> {
-    Html(include_str!("dashboard.html"))
+async fn dashboard(State(state): State<Arc<AppState>>, headers: HeaderMap) -> axum::response::Response {
+    let cookies = headers
+        .get(axum::http::header::COOKIE)
+        .and_then(|c| c.to_str().ok())
+        .unwrap_or("");
+    let existing = cookies.split(';').find_map(|p| {
+        let p = p.trim();
+        p.strip_prefix("vid=").map(|s| s.to_string())
+    });
+    let vid = existing.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        // Random opaque id only - no IP, no fingerprint.
+        let _ = state.db.lock().unwrap().execute(
+            "INSERT OR IGNORE INTO visitors(vid, first_seen) VALUES (?1, ?2)",
+            rusqlite::params![vid, now],
+        );
+    }
+    let mut resp = Html(include_str!("dashboard.html")).into_response();
+    if existing.is_none() {
+        if let Ok(v) = axum::http::HeaderValue::from_str(&format!(
+            "vid={vid}; HttpOnly; SameSite=Lax; Max-Age=31536000; Path=/"
+        )) {
+            resp.headers_mut().append(axum::http::header::SET_COOKIE, v);
+        }
+    }
+    resp
+}
+
+async fn api_visitors(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let count: i64 = state
+        .db
+        .lock()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM visitors", [], |r| r.get(0))
+        .unwrap_or(0);
+    (
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        format!("{{\"visitors\":{count}}}"),
+    )
+}
+
+const WALLPAPER: &[u8] = include_bytes!("wallpaper.jpg");
+
+async fn wallpaper() -> impl IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/jpeg")],
+        WALLPAPER,
+    )
 }
 
 #[derive(serde::Serialize)]
@@ -241,6 +310,7 @@ async fn api_data(
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
     let days = params.get("days").cloned().unwrap_or_else(|| "30".into());
+    // facility=JSON array string, e.g. ["Bishan ActiveSG Gym"]
     let facility = params.get("facility").cloned().unwrap_or_default();
     let ftype = params.get("type").cloned().unwrap_or_default();
 
@@ -251,7 +321,7 @@ async fn api_data(
     };
     let sql = "SELECT facility, ts, capacity FROM capacities \
         WHERE (:days < 0 OR ts >= :days) \
-          AND (:facility = '' OR facility = :facility) \
+          AND (:facs = '' OR facility IN (SELECT je.value FROM json_each(:facs) AS je)) \
           AND (:gym = 0 OR facility LIKE '%Gym%') \
           AND (:pool = 0 OR facility NOT LIKE '%Gym%') \
         ORDER BY ts ASC";
@@ -280,7 +350,7 @@ async fn api_data(
         .query_map(
             rusqlite::named_params! {
                 ":days": cutoff,
-                ":facility": facility,
+                ":facs": facility,
                 ":gym": gym,
                 ":pool": pool,
             },
