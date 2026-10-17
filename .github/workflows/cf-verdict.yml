@@ -1,0 +1,27 @@
+---
+name: CF verdict test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: impersonated fetch verdict
+        run: |
+          pip install curl_cffi
+          python3 - <<'EOF'
+          from curl_cffi import requests
+          host = "https://activesg.gov.sg/api/trpc/"
+          path = "pass.getFacilityCapacities"
+          qs = ("?input=%7B%22json%22%3Anull%2C%22meta%22"
+                "%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D")
+          url = host + path + qs
+          for imp in ["chrome124", "safari184", "chrome"]:
+              try:
+                  r = requests.get(url, impersonate=imp, timeout=30)
+                  print(imp, "VERDICT:", r.status_code, r.text[:60])
+              except Exception as e:
+                  print(imp, "ERROR:", type(e).__name__)
+          EOF
