@@ -37,6 +37,7 @@ This is an **unofficial, non-commercial hobby project**. It is **not affiliated 
 - The tracker makes a single lightweight request roughly every 10 minutes - far less traffic than a person loading the page in a browser. It does not bypass any login, paywall, or access control.
 - Only aggregate, non-personal occupancy figures are collected. No personal data is accessed or stored.
 - All facility names and data belong to ActiveSG / SportSG. This project simply visualises publicly displayed figures for convenience.
+- The ActiveSG site publishes no robots.txt. We work on best effort, in good faith, to minimise our footprint: a single lightweight request every 10 minutes, no parallelism, no retries beyond backoff.
 
 If you are the data owner and would like this project modified or taken down, please open an issue or contact me - happy to comply.
 

@@ -87,6 +87,15 @@
   select[multiple] { width: 100%; }
   select[multiple] option:checked { background: var(--title-a); color: #fff; font-weight: bold; }
   .checkline { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; }
+  .facbox {
+    border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
+    background: #fff; max-height: 190px; overflow-y: auto; width: 100%;
+  }
+  .checkitem { display: flex; align-items: center; gap: 7px; padding: 3px 8px; font-size: 13px; cursor: pointer; }
+  .checkitem:nth-child(odd) { background: #FFFFFF; }
+  .checkitem:nth-child(even) { background: #E8E8E8; }
+  .checkitem:hover { background: var(--panel-yellow); }
+  .checkitem input { accent-color: var(--title-a); width: 15px; height: 15px; flex: none; }
   .ctrl-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
   .hint { font-size: 11px; color: #000; background: var(--tertiary); border: 2px solid;
     border-color: #fff #808080 #808080 #fff; padding: 2px 6px; display: none; }
@@ -240,10 +249,10 @@
       <hr class="groove">
       <div class="ctrl-row">
         <div style="flex:1 1 320px;">
-          <label class="ctl" for="facility">Facilities (ctrl / shift-click for several; ★ = favourite)</label>
-          <select id="facility" multiple size="7" aria-describedby="fac-hint"></select>
+          <label class="ctl" id="lbl-fac">Facilities (tick any; ★ = favourite)</label>
+          <div id="facility-box" class="facbox" role="group" aria-labelledby="lbl-fac"></div>
           <div class="btn-group" style="margin-top:6px;">
-            <button class="btn" id="pin" type="button" title="Star the highlighted facilities">★ Pin favourites</button>
+            <button class="btn" id="pin" type="button" title="Star the ticked facilities">★ Pin favourites</button>
             <button class="btn" id="clearsel" type="button">Clear selection</button>
           </div>
           <span class="hint" id="fac-hint"></span>
@@ -283,6 +292,13 @@
       <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
     </div>
     <div class="win-body">
+      <div class="content-inset" style="padding:10px;">
+        <div style="position:relative;height:300px;">
+          <canvas id="daychart" aria-label="Line chart of average crowd by hour for each day of the week" role="img"></canvas>
+        </div>
+      </div>
+      <div class="legend-note">each line = average week day across all stored history (current facility scope)</div>
+      <hr class="groove">
       <div class="content-inset" style="padding:10px;overflow-x:auto;">
         <table class="heat" id="heat-table" aria-label="Average crowd by day of week and hour"></table>
       </div>
@@ -432,24 +448,35 @@ function scopeParams(days) {
   return p;
 }
 
-/* ===== facility listbox ===== */
-function rebuildFacilitySelect() {
-  const sel = document.getElementById("facility");
+/* ===== facility checkboxes ===== */
+function rebuildFacilityBox() {
+  const box = document.getElementById("facility-box");
   const scoped = allNames.filter(inScope);
   const rank = n => (state.favs.includes(n) ? 0 : 1);
   scoped.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
-  sel.innerHTML = "";
-  for (const n of scoped) {
-    const o = document.createElement("option");
-    o.value = n;
-    o.textContent = (state.favs.includes(n) ? "★ " : "") + n;
-    if (state.sel.includes(n)) o.selected = true;
-    sel.appendChild(o);
-  }
   // deconfliction: drop selections that left the current scope
   state.sel = state.sel.filter(n => scoped.includes(n));
   LS.set("sel", state.sel);
+  box.innerHTML = "";
+  for (const n of scoped) {
+    const lab = document.createElement("label");
+    lab.className = "checkitem";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = n;
+    cb.checked = state.sel.includes(n);
+    cb.addEventListener("change", onFacilityChange);
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode((state.favs.includes(n) ? "★ " : "") + n));
+    box.appendChild(lab);
+  }
   updateHint();
+}
+function onFacilityChange() {
+  state.sel = [...document.querySelectorAll("#facility-box input:checked")].map(i => i.value);
+  LS.set("sel", state.sel);
+  updateHint();
+  load();
 }
 function updateHint() {
   const h = document.getElementById("fac-hint");
@@ -553,6 +580,7 @@ async function loadBestTime() {
   }
   buildHeatmap(heatCache);
   buildGoTable(heatCache);
+  buildDayChart(heatCache);
 }
 
 function buildHeatmap(rows) {
@@ -614,6 +642,48 @@ function buildGoTable(rows) {
            `<td class="mono">${c.n}</td></tr>`;
   };
   document.querySelector("#go-table tbody").innerHTML = quiet.map(rowsHtml).join("") + busy.map(rowsHtml).join("");
+}
+
+function buildDayChart(rows) {
+  const series = {}; // day -> hour -> {sum, n}
+  for (const r of rows) {
+    const d = new Date(r.t);
+    const day = (d.getDay() + 6) % 7;
+    const h = d.getHours();
+    if (h < HOURS.open || h >= HOURS.close) continue;
+    (series[day] = series[day] || {})[h] = series[day][h] || { sum: 0, n: 0 };
+    series[day][h].sum += r.c; series[day][h].n++;
+  }
+  const labels = [];
+  for (let h = HOURS.open; h < HOURS.close; h++)
+    labels.push(`${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`);
+  const colors = ["#0000FF", "#00AA00", "#FF8000", "#8000FF", "#FF0000", "#008080", "#FF00FF"];
+  const datasets = DAYS.map((name, day) => ({
+    label: name,
+    data: Object.keys(series[day] || {}).map(Number).sort((a, b) => a - b)
+      .map(h => ({ x: labels[h - HOURS.open], y: Math.round(series[day][h].sum / series[day][h].n) })),
+    borderColor: colors[day], borderWidth: 2, pointRadius: 2, tension: 0.25, spanGaps: true
+  }));
+  const ctx = document.getElementById("daychart");
+  if (window._daychart) window._daychart.destroy();
+  window._daychart = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        x: { grid: { color: "#E8E8E8" }, ticks: { color: "#000", maxRotation: 0 } },
+        y: { min: 0, max: 100, title: { display: true, text: "AVG CAPACITY %", font: { weight: "bold" } },
+             grid: { color: "#E8E8E8" }, ticks: { color: "#000" } }
+      },
+      plugins: {
+        legend: { labels: { boxWidth: 14, boxHeight: 14, font: { weight: "bold" } } },
+        tooltip: { backgroundColor: "#000080", titleColor: "#fff", bodyColor: "#FFFFCC",
+                   borderColor: "#000", borderWidth: 2, cornerRadius: 0 }
+      }
+    }
+  });
 }
 
 /* ===== stats + busy ===== */
@@ -685,7 +755,7 @@ document.getElementById("type-group").addEventListener("click", e => {
   state.type = e.target.dataset.type;
   LS.set("type", state.type);
   setPressed("#type-group", "type", state.type);
-  rebuildFacilitySelect(); // deconfliction: options scoped to type
+  rebuildFacilityBox(); // deconfliction: options scoped to type
   load();
 });
 document.getElementById("range-group").addEventListener("click", e => {
@@ -695,26 +765,20 @@ document.getElementById("range-group").addEventListener("click", e => {
   setPressed("#range-group", "days", state.days);
   load();
 });
-document.getElementById("facility").addEventListener("change", e => {
-  state.sel = [...e.target.selectedOptions].map(o => o.value);
-  LS.set("sel", state.sel);
-  updateHint();
-  load();
-});
 document.getElementById("pin").addEventListener("click", () => {
-  const highlighted = [...document.getElementById("facility").selectedOptions].map(o => o.value);
-  for (const n of highlighted) {
+  const ticked = [...document.querySelectorAll("#facility-box input:checked")].map(i => i.value);
+  for (const n of ticked) {
     const i = state.favs.indexOf(n);
     if (i >= 0) state.favs.splice(i, 1); else state.favs.push(n);
   }
   LS.set("favs", state.favs);
-  rebuildFacilitySelect();
+  rebuildFacilityBox();
   load();
 });
 document.getElementById("clearsel").addEventListener("click", () => {
   state.sel = [];
   LS.set("sel", state.sel);
-  for (const o of document.getElementById("facility").options) o.selected = false;
+  for (const i of document.querySelectorAll("#facility-box input")) i.checked = false;
   updateHint();
   load();
 });
@@ -738,7 +802,7 @@ document.getElementById("shade").checked = state.shade;
     const rows = await fetchRows(new URLSearchParams({ days: "1" }));
     allNames = [...new Set(rows.map(r => r.f))];
   } catch {}
-  rebuildFacilitySelect();
+  rebuildFacilityBox();
   loadVisitors();
   load();
 })();
