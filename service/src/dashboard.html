@@ -569,7 +569,8 @@ function buildHeatmap(rows) {
   const nowDay = (now.getDay() + 6) % 7, nowHour = now.getHours();
 
   let html = '<thead><tr><th scope="col">Day</th>';
-  for (let h = HOURS.open; h < HOURS.close; h++) html += `<th scope="col">${String(h).padStart(2, "0")}</th>`;
+  const hourLabel = h => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`;
+  for (let h = HOURS.open; h < HOURS.close; h++) html += `<th scope="col">${hourLabel(h)}</th>`;
   html += "</tr></thead><tbody>";
   for (let day = 0; day < 7; day++) {
     html += `<tr><th scope="row" class="rowhead">${DAYS[day]}</th>`;
@@ -602,13 +603,13 @@ function buildGoTable(rows) {
   const cells = Object.entries(buckets)
     .map(([k, v]) => ({ day: +k.split(":")[0], hour: +k.split(":")[1], avg: v.sum / v.n, n: v.n }))
     .filter(c => c.n >= 3);
-  const label = c => `${DAYS[c.day]} ${String(c.hour).padStart(2, "0")}:00`;
+  const label = c => `${String(c.hour % 12 === 0 ? 12 : c.hour % 12)}${c.hour < 12 ? "am" : "pm"}`;
   const quiet = cells.slice().sort((a, b) => a.avg - b.avg).slice(0, 5);
   const busy = cells.slice().sort((a, b) => b.avg - a.avg).slice(0, 3);
   const rowsHtml = c => {
     const [bg, fg] = heatColor(Math.round(c.avg));
     const verdict = c.avg <= 40 ? '<span class="tag pool">GO!</span>' : '<span class="tag gym">BUSY</span>';
-    return `<tr><td>${verdict}</td><td>${DAYS[c.day]}</td><td class="mono">${label(c).split(" ")[1]}</td>` +
+    return `<tr><td>${verdict}</td><td>${DAYS[c.day]}</td><td class="mono">${label(c)}</td>` +
            `<td class="mono" style="background:${bg};color:${fg};font-weight:bold;">${Math.round(c.avg)}%</td>` +
            `<td class="mono">${c.n}</td></tr>`;
   };
