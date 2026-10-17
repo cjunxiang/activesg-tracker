@@ -1,0 +1,10 @@
+name = "activesg-collector"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+[vars]
+SOURCE_URL = "https://activesg.gov.sg/api/trpc/pass.getFacilityCapacities?input=%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D"
+INGEST_URL = "https://sg-public-gym-crowd.up.railway.app/ingest"

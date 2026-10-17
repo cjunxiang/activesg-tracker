@@ -244,7 +244,10 @@ fn parse_csv_line(line: &str) -> Option<(String, i64, i64, bool)> {
     Some((facility.to_string(), ts_ms, cap, closed))
 }
 
-async fn dashboard(State(state): State<Arc<AppState>>, headers: HeaderMap) -> axum::response::Response {
+async fn dashboard(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> axum::response::Response {
     let cookies = headers
         .get(axum::http::header::COOKIE)
         .and_then(|c| c.to_str().ok())
@@ -253,7 +256,9 @@ async fn dashboard(State(state): State<Arc<AppState>>, headers: HeaderMap) -> ax
         let p = p.trim();
         p.strip_prefix("vid=").map(|s| s.to_string())
     });
-    let vid = existing.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let vid = existing
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
