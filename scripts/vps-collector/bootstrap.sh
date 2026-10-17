@@ -113,11 +113,12 @@ systemctl enable --now warp-socks.service activesg-collector.service
 
 # Oracle reclaims Always Free instances judged idle over 7 days: CPU p95 < 20%
 # AND network < 20% AND memory < 20%. This collector is idle by that measure, so
-# break BOTH the memory and CPU halves below. Size the ballast to your shape:
-# keep it above 20% of RAM (3 GB on a 6 GB instance, 3 GB on 12 GB is not enough
-# on its own - the CPU cycle covers that). Set KEEPALIVE_MB=0 to skip (PAYG/
-# other providers don't need any of this).
-KEEPALIVE_MB="${KEEPALIVE_MB:-3000}"
+# Size it from real RAM: 40% of MemTotal, capped at 3000 MB. That stays above
+# Oracle's 20% memory line on any shape and never exceeds /dev/shm's default
+# half-of-RAM limit. (Other providers / PAYG do not need any of this.)
+TOTAL_MB=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)
+DEF_MB=$(awk -v t="$TOTAL_MB" 'BEGIN{v=t*0.4; if (v>3000) v=3000; printf "%d", v}')
+KEEPALIVE_MB="${KEEPALIVE_MB:-$DEF_MB}"
 if [ "$KEEPALIVE_MB" -gt 0 ]; then
   cat > /etc/systemd/system/idle-ballast.service <<BALLAST
 [Unit]
