@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ActiveSG Crowd History</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e1013; color: #e6e8eb; font: 14px/1.5 -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #8b9199; font-size: 12.5px; margin-bottom: 20px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+  select, button { background: #191c21; color: #e6e8eb; border: 1px solid #2a2f36; border-radius: 8px; padding: 7px 11px; font-size: 13px; cursor: pointer; }
+  select:focus, button:focus { outline: 1px solid #4c8dff; }
+  button.on { background: #1d2a44; border-color: #3565b8; color: #9ec1ff; }
+  .group { display: flex; gap: 6px; }
+  .card { background: #14171c; border: 1px solid #22262d; border-radius: 12px; padding: 16px; }
+  .stats { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 14px; color: #8b9199; font-size: 12.5px; }
+  .stats b { color: #e6e8eb; font-size: 14px; display: block; }
+  #chart-wrap { position: relative; height: 420px; }
+  .empty { color: #8b9199; text-align: center; padding: 60px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ActiveSG Crowd History</h1>
+  <div class="sub">Gym and pool crowd levels, snapshotted every 10 minutes. <span id="updated"></span></div>
+
+  <div class="bar">
+    <select id="facility"><option value="">All facilities</option></select>
+    <span class="group" id="type-group">
+      <button data-type="" class="on">All</button>
+      <button data-type="pool">Pools</button>
+      <button data-type="gym">Gyms</button>
+    </span>
+    <span class="group" id="range-group">
+      <button data-days="1">24h</button>
+      <button data-days="7" class="on">7d</button>
+      <button data-days="30">30d</button>
+      <button data-days="90">90d</button>
+      <button data-days="max">Max</button>
+    </span>
+  </div>
+
+  <div class="card">
+    <div id="chart-wrap"><canvas id="chart"></canvas></div>
+    <div class="stats">
+      <div>Facilities shown<b id="stat-fac">-</b></div>
+      <div>Readings in view<b id="stat-rows">-</b></div>
+      <div>Current crowd (avg)<b id="stat-now">-</b></div>
+      <div>Busiest right now<b id="stat-busy">-</b></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const state = { facility: "", type: "", days: 7 };
+const PALETTE = ["#4c8dff","#3ecf8e","#ffb454","#ff6b81","#b58cff","#2dd4bf","#f472b6","#a3e635","#fb923c","#60a5fa"];
+
+async function load() {
+  const params = new URLSearchParams({ days: state.days });
+  if (state.facility) params.set("facility", state.facility);
+  if (state.type) params.set("type", state.type);
+  const res = await fetch("/api/data?" + params);
+  const rows = await res.json();
+  render(rows);
+}
+
+function render(rows) {
+  const byFacility = new Map();
+  for (const r of rows) {
+    if (!byFacility.has(r.f)) byFacility.set(r.f, []);
+    byFacility.get(r.f).push([r.t, r.c]);
+  }
+
+  const facSel = document.getElementById("facility");
+  if (facSel.options.length <= 1 && byFacility.size) {
+    for (const name of [...byFacility.keys()].sort()) {
+      const o = document.createElement("option");
+      o.value = o.textContent = name;
+      facSel.appendChild(o);
+    }
+  }
+
+  let datasets;
+  if (!state.facility && byFacility.size > 1) {
+    const byTs = new Map();
+    for (const [, points] of byFacility)
+      for (const [t, c] of points)
+        byTs.set(t, (byTs.get(t) || []).concat(c));
+    const ts = [...byTs.keys()].sort((a, b) => a - b);
+    datasets = [{
+      label: "Average across facilities",
+      data: ts.map(t => ({ x: t, y: Math.round(byTs.get(t).reduce((a, b) => a + b, 0) / byTs.get(t).length) })),
+      borderColor: "#4c8dff", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false
+    }];
+  } else {
+    datasets = [...byFacility.entries()].map(([name, points], i) => ({
+      label: name,
+      data: points.map(([t, c]) => ({ x: t, y: c })),
+      borderColor: PALETTE[i % PALETTE.length],
+      borderWidth: 1.8, pointRadius: 0, tension: 0.25, fill: false
+    }));
+  }
+
+  const empty = rows.length === 0;
+  document.getElementById("chart-wrap").style.display = empty ? "none" : "";
+  document.querySelector(".empty")?.remove();
+  if (empty) {
+    const d = document.createElement("div");
+    d.className = "empty";
+    d.textContent = "No data in this range yet.";
+    document.querySelector(".card").prepend(d);
+  } else {
+    const times = rows.map(r => r.t);
+    const latest = Math.max(...times);
+    const nowRows = rows.filter(r => r.t === latest);
+    const avgNow = Math.round(nowRows.reduce((a, r) => a + r.c, 0) / nowRows.length);
+    const busy = nowRows.reduce((a, r) => r.c > a.c ? r : a, nowRows[0]);
+    document.getElementById("updated").textContent = "Last snapshot: " + new Date(latest).toLocaleString();
+    document.getElementById("stat-fac").textContent = byFacility.size;
+    document.getElementById("stat-rows").textContent = rows.length.toLocaleString();
+    document.getElementById("stat-now").textContent = avgNow + "%";
+    document.getElementById("stat-busy").textContent = busy ? busy.f + " (" + busy.c + "%)" : "-";
+  }
+
+  const ctx = document.getElementById("chart");
+  if (window._chart) window._chart.destroy();
+  window._chart = new Chart(ctx, {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "nearest", intersect: false },
+      scales: {
+        x: { type: "time", time: { tooltipFormat: "ddd HH:mm" }, grid: { color: "#1d2127" }, ticks: { color: "#8b9199" } },
+        y: { min: 0, max: 100, title: { display: true, text: "Capacity %" }, grid: { color: "#1d2127" }, ticks: { color: "#8b9199" } }
+      },
+      plugins: {
+        legend: { display: !state.facility === false || datasets.length <= 10, labels: { color: "#8b9199", boxWidth: 12 } },
+        tooltip: { callbacks: { title: items => new Date(items[0].parsed.x).toLocaleString() } }
+      }
+    }
+  });
+}
+
+document.getElementById("facility").addEventListener("change", e => { state.facility = e.target.value; load(); });
+document.getElementById("type-group").addEventListener("click", e => {
+  if (e.target.dataset.type === undefined) return;
+  state.type = e.target.dataset.type;
+  for (const b of document.querySelectorAll("#type-group button")) b.classList.toggle("on", b === e.target);
+  load();
+});
+document.getElementById("range-group").addEventListener("click", e => {
+  if (e.target.dataset.days === undefined) return;
+  state.days = e.target.dataset.days;
+  for (const b of document.querySelectorAll("#range-group button")) b.classList.toggle("on", b === e.target);
+  load();
+});
+
+load();
+</script>
+</body>
+</html>
