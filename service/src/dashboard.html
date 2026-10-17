@@ -191,7 +191,7 @@
       <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
     </div>
     <div class="win-body">
-      <h1 id="hero-title" class="text-rainbow">ActiveSG Crowd History</h1>
+      <h1 id="hero-title" class="text-rainbow">Unofficial ActiveSG Crowd History</h1>
       <div class="sub">Gym &amp; swimming pool crowd levels, snapshotted every 10 minutes.<span class="badge-new" aria-hidden="true">LIVE!</span><span class="sr-only">Live data.</span></div>
       <div class="sub" style="margin-top:6px;"><strong>UNOFFICIAL.</strong> Not affiliated with, endorsed by, or connected to ActiveSG or SportSG. Source of truth: <a href="https://activesg.gov.sg/gym-pool-crowd">activesg.gov.sg/gym-pool-crowd</a></div>
       <hr class="groove">
@@ -208,7 +208,7 @@
   <!-- ===== ad slot: banner ===== -->
   <aside class="ad" aria-label="Advertisement slot">
     <div class="ad-head">YOUR AD HERE - 468 x 60</div>
-    <div class="ad-sub">this space keeps the trackers running. <a href="mailto:ads@activesg-tracker.example?subject=Ad%20slot%20468x60">BOOK THIS SPOT</a></div>
+    <div class="ad-sub">this space keeps the trackers running. <a href="mailto:jefferylmy@gmail.com?subject=%5BPUBLIC-GYM-CROWD-PORTAL%5D%20Enquiry">BOOK THIS SPOT</a></div>
   </aside>
 
   <!-- ===== control panel ===== -->
@@ -353,7 +353,7 @@
   <!-- ===== ad slot: leaderboard ===== -->
   <aside class="ad" aria-label="Advertisement slot">
     <div class="ad-head">AD SPACE - 728 x 90</div>
-    <div class="ad-sub">your banner could be flexing here. <a href="mailto:ads@activesg-tracker.example?subject=Ad%20slot%20728x90">RESERVE IT</a></div>
+    <div class="ad-sub">your banner could be flexing here. <a href="mailto:jefferylmy@gmail.com?subject=%5BPUBLIC-GYM-CROWD-PORTAL%5D%20Enquiry">RESERVE IT</a></div>
   </aside>
 
   <div class="construction" aria-hidden="true"></div>
@@ -401,6 +401,9 @@ let heatCache = null, heatScope = "";
 
 const typeOf = f => (f.toUpperCase().includes("GYM") ? "gym" : "pool");
 const inScope = f => (!state.type || typeOf(f) === state.type);
+
+// easter egg: 67 -> (hehe), 69 -> (nice)
+const egg = v => { const s = String(v); return s.includes("67") ? s + " (hehe)" : s.includes("69") ? s + " (nice)" : s; };
 
 function hoursFor(type) {
   if (type === "gym") return [GYM_OPEN, GYM_CLOSE];
@@ -610,7 +613,7 @@ function buildHeatmap(rows) {
       const [bg, fg] = heatColor(avg);
       const isNow = day === nowDay && h === nowHour;
       html += `<td class="${isNow ? "now" : ""}" style="background:${bg};color:${fg};" ` +
-              `title="${DAYS[day]} ${String(h).padStart(2, "0")}:00 - avg ${avg}% over ${b.n} readings">${avg}</td>`;
+              `title="${DAYS[day]} ${String(h).padStart(2, "0")}:00 - avg ${avg}% over ${b.n} readings">${egg(avg)}</td>`;
     }
     html += "</tr>";
   }
@@ -639,7 +642,7 @@ function buildGoTable(rows) {
     const [bg, fg] = heatColor(Math.round(c.avg));
     const verdict = c.avg <= 40 ? '<span class="tag pool">GO!</span>' : '<span class="tag gym">BUSY</span>';
     return `<tr><td>${verdict}</td><td>${DAYS[c.day]}</td><td class="mono">${label(c)}</td>` +
-           `<td class="mono" style="background:${bg};color:${fg};font-weight:bold;">${Math.round(c.avg)}%</td>` +
+           `<td class="mono" style="background:${bg};color:${fg};font-weight:bold;">${egg(Math.round(c.avg))}%</td>` +
            `<td class="mono">${c.n}</td></tr>`;
   };
   document.querySelector("#go-table tbody").innerHTML = quiet.map(rowsHtml).join("") + busy.map(rowsHtml).join("");
@@ -702,20 +705,20 @@ function renderStats(rows) {
   document.getElementById("stats").innerHTML =
     '<span class="lbl">READINGS:</span> ' + String(rows.length).padStart(7, "0") +
     ' | <span class="lbl">FACILITIES:</span> ' + String(nFac).padStart(3, "0") +
-    ' | <span class="lbl">AVG NOW:</span> ' + String(avgNow).padStart(3, "0") + "%" +
+    ' | <span class="lbl">AVG NOW:</span> ' + egg(String(avgNow).padStart(3, "0")) + "%" +
     ' | <span class="lbl">LAST SNAPSHOT:</span> ' + when;
 
   const top = [...nowRows].sort((a, b) => b.c - a.c).slice(0, 5);
   document.querySelector("#busy-table tbody").innerHTML = top.map((r, i) =>
     `<tr><td class="mono">${i + 1}</td><td>${(state.favs.includes(r.f) ? "★ " : "") + r.f}</td>` +
     `<td><span class="tag ${typeOf(r.f)}">${typeOf(r.f).toUpperCase()}</span></td>` +
-    `<td class="mono">${r.c}%</td></tr>`).join("");
+    `<td class="mono">${egg(r.c)}%</td></tr>`).join("");
 }
 
 async function loadVisitors() {
   try {
     const v = await (await fetch("/api/visitors")).json();
-    document.getElementById("visitors").textContent = String(v.visitors).padStart(7, "0");
+    document.getElementById("visitors").textContent = egg(String(v.visitors).padStart(7, "0"));
   } catch { document.getElementById("visitors").textContent = "???????"; }
 }
 
@@ -814,6 +817,41 @@ document.getElementById("shade").checked = state.shade;
   rebuildFacilityBox();
   loadVisitors();
   load();
+})();
+</script>
+<!-- lean bubble cursor (tholman/cursor-effects spirit, dependency-free) -->
+<canvas id="bubbles" aria-hidden="true"></canvas>
+<script>
+(function () {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = document.getElementById("bubbles"), x = c.getContext("2d");
+  let W, H;
+  const fit = () => { W = c.width = innerWidth; H = c.height = innerHeight; };
+  fit(); addEventListener("resize", fit);
+  const bubbles = [];
+  addEventListener("pointermove", e => {
+    for (let i = 0; i < 2; i++) bubbles.push({
+      x: e.clientX + Math.random() * 16 - 8,
+      y: e.clientY + Math.random() * 16 - 8,
+      r: 5 + Math.random() * 9, a: 1,
+      vy: 1 + Math.random() * 1.5, drift: Math.random() * 3 - 1.5,
+      hue: Math.floor(Math.random() * 360)
+    });
+    if (bubbles.length > 300) bubbles.splice(0, bubbles.length - 300);
+  });
+  (function tick() {
+    x.clearRect(0, 0, W, H);
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.y -= b.vy; b.x += b.drift * 0.3; b.a -= 0.012;
+      if (b.a <= 0) { bubbles.splice(i, 1); continue; }
+      x.beginPath(); x.arc(b.x, b.y, b.r, 0, 7);
+      x.strokeStyle = `hsla(${b.hue},100%,50%,${b.a})`;
+      x.fillStyle = `hsla(${b.hue},100%,88%,${b.a * 0.35})`;
+      x.lineWidth = 1.5; x.fill(); x.stroke();
+    }
+    requestAnimationFrame(tick);
+  })();
 })();
 </script>
 </body>
