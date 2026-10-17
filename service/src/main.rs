@@ -1,9 +1,9 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     response::{Html, IntoResponse},
-    routing::get,
-    Router,
+    routing::{get, post},
+    Json, Router,
 };
 use rusqlite::Connection;
 use serde::Deserialize;
@@ -35,7 +35,7 @@ struct RpcData {
 #[derive(Deserialize)]
 struct Snapshot {
     timestamp: i64,
-    #[serde(default)]
+    #[serde(default, rename = "swimFacilities")]
     swim_facilities: Vec<Facility>,
     #[serde(default, rename = "gymFacilities")]
     gym_facilities: Vec<Facility>,
@@ -87,6 +87,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(dashboard))
         .route("/api/data", get(api_data))
+        .route("/ingest", post(ingest))
         .with_state(state);
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
@@ -275,4 +276,38 @@ async fn api_data(
             .into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
+}
+
+// Collectors that can solve Cloudflare (residential machine, CF Worker) push
+// the raw tRPC snapshot here; auth is a shared bearer token.
+async fn ingest(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<Snapshot>,
+) -> impl IntoResponse {
+    let expected = std::env::var("INGEST_TOKEN").unwrap_or_default();
+    let got = headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .unwrap_or("");
+    if expected.is_empty() || got != expected {
+        return (StatusCode::UNAUTHORIZED, "bad token").into_response();
+    }
+    let ts = body.timestamp;
+    let db = state.db.lock().unwrap();
+    let mut inserted = 0;
+    for f in body.swim_facilities.into_iter().chain(body.gym_facilities) {
+        if db
+            .execute(
+                "INSERT INTO capacities(facility, ts, capacity, is_closed) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![f.name, ts, f.capacity, f.is_closed as i64],
+            )
+            .is_ok()
+        {
+            inserted += 1;
+        }
+    }
+    println!("[ingest] stored {inserted} readings at ts={ts}");
+    (StatusCode::OK, format!("{{\"inserted\":{inserted}}}")).into_response()
 }
