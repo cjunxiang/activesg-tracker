@@ -3,6 +3,8 @@
 Meant to meaningfully consume activeSG data, not overwhelm activeSG servers; 
 reasonable intervals, sufficient to understand crowd patterns for better decision making. (i'm sick of the crowd) 
 
+In fact, we're aggregating data and channeling traffic over here which eases their server load. 
+
 # ActiveSG Crowd Tracker
 
 Polls ActiveSG's public gym/pool crowd endpoint every 10 minutes and serves a
