@@ -146,6 +146,13 @@
   table.heat td.rowhead { background: var(--bg); font-size: 10px; text-transform: uppercase; }
   table.heat td.nodata { background: #E8E8E8; color: var(--muted); font-weight: normal; }
   table.heat td.now { outline: 3px solid #000; outline-offset: -3px; }
+  .floatline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .heat-block + .heat-block { margin-top: 12px; }
+  .heat-block > .titlebar { font-size: 11px; padding: 2px 6px; }
+  .heat-block > .titlebar .cell-count { font-weight: normal; opacity: 0.85; }
+  table.heat caption { caption-side: top; text-align: left; font-size: 11px; font-weight: bold;
+    text-transform: uppercase; padding: 3px 4px; background: var(--bg); border: 2px solid var(--muted);
+    border-bottom: none; }
   .heat-legend { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 11px; }
   .heat-legend i { width: 14px; height: 14px; display: inline-block; border: 2px solid var(--muted); vertical-align: -2px; }
 
@@ -301,9 +308,12 @@
       </div>
       <div class="legend-note">each line = average week day across all stored history (current facility scope)</div>
       <hr class="groove">
-      <div class="content-inset" style="padding:10px;overflow-x:auto;">
-        <table class="heat" id="heat-table" aria-label="Average crowd by day of week and hour"></table>
+      <div class="floatline">
+        <label class="checkline"><input type="checkbox" id="split">
+          <span>Compare facilities (one heatmap each)</span></label>
+        <span class="hint" id="split-hint"></span>
       </div>
+      <div class="content-inset" style="padding:10px;overflow-x:auto;" id="heat-host"></div>
       <div class="heat-legend" aria-hidden="true">
         <span>AVERAGE CROWD:</span>
         <i style="background:#00AA00"></i> empty
@@ -316,8 +326,8 @@
       <hr class="groove">
       <div class="content-inset" style="padding:0;">
         <table class="grid" id="go-table">
-          <thead><tr><th>Verdict</th><th>Day</th><th>Time</th><th>Avg crowd</th><th>Samples</th></tr></thead>
-          <tbody><tr><td colspan="5" style="text-align:center;">loading...</td></tr></tbody>
+          <thead><tr><th>Verdict</th><th class="col-fac">Facility</th><th>Day</th><th>Time</th><th>Avg crowd</th><th>Samples</th></tr></thead>
+          <tbody><tr><td colspan="6" style="text-align:center;">loading...</td></tr></tbody>
         </table>
       </div>
       <div class="legend-note">averages over all stored history for the current facility scope; best = quietest slots worth going</div>
@@ -391,7 +401,8 @@ const state = {
   days: LS.get("days", "7"),
   sel: LS.get("sel", []),     // selected facility names (multi)
   favs: LS.get("favs", []),   // starred names (persist across visits)
-  shade: LS.get("shade", true)
+  shade: LS.get("shade", true),
+  split: LS.get("split", false)
 };
 const PALETTE = ["#000080", "#FF0000", "#00AA00", "#FF8000", "#8000FF", "#008080"];
 const POOL_COLOR = "#0000FF", GYM_COLOR = "#FF0000";
@@ -569,6 +580,8 @@ function renderChart(datasets) {
 
 /* ===== best time heatmap ===== */
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const SPLIT_LIMIT = 6;
+
 function heatColor(v) {
   if (v <= 20) return ["#00AA00", "#fff"];
   if (v <= 40) return ["#7CFC00", "#000"];
@@ -576,6 +589,9 @@ function heatColor(v) {
   if (v <= 80) return ["#FF8000", "#000"];
   return ["#FF0000", "#fff"];
 }
+
+const canSplit = () => state.sel.length >= 2;
+const hourLabel = h => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`;
 
 async function loadBestTime() {
   const scope = JSON.stringify([state.type, state.sel, "max"]);
@@ -588,107 +604,123 @@ async function loadBestTime() {
   buildDayChart(heatCache);
 }
 
-function buildHeatmap(rows) {
-  const buckets = {}; // day -> hour -> {sum, n}
+/** Bucket rows into day -> hour -> {sum,n}; optionally only one facility. */
+function bucket(rows, facility) {
+  const out = {};
   for (const r of rows) {
+    if (facility && r.f !== facility) continue;
     const d = new Date(r.t);
-    const day = (d.getDay() + 6) % 7; // Mon=0
+    const day = (d.getDay() + 6) % 7;
     const h = d.getHours();
     if (h < HOURS.open || h >= HOURS.close) continue;
-    (buckets[day] = buckets[day] || {})[h] = buckets[day][h] || { sum: 0, n: 0 };
-    buckets[day][h].sum += r.c; buckets[day][h].n++;
+    const slot = (out[day] = out[day] || {})[h] = out[day][h] || { sum: 0, n: 0 };
+    slot.sum += r.c;
+    slot.n += 1;
   }
+  return out;
+}
+
+function heatTableHtml(rows, caption) {
+  const buckets = bucket(rows);
   const now = new Date();
   const nowDay = (now.getDay() + 6) % 7, nowHour = now.getHours();
 
-  let html = '<thead><tr><th scope="col">Day</th>';
-  const hourLabel = h => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`;
+  let html = caption ? `<caption>${caption}</caption>` : "";
+  html += '<thead><tr><th scope="col">Day</th>';
   for (let h = HOURS.open; h < HOURS.close; h++) html += `<th scope="col">${hourLabel(h)}</th>`;
   html += "</tr></thead><tbody>";
+
+  let samples = 0;
   for (let day = 0; day < 7; day++) {
     html += `<tr><th scope="row" class="rowhead">${DAYS[day]}</th>`;
     for (let h = HOURS.open; h < HOURS.close; h++) {
       const b = (buckets[day] || {})[h];
       if (!b || !b.n) { html += '<td class="nodata">·</td>'; continue; }
       const avg = Math.round(b.sum / b.n);
+      samples += b.n;
       const [bg, fg] = heatColor(avg);
       const isNow = day === nowDay && h === nowHour;
       html += `<td class="${isNow ? "now" : ""}" style="background:${bg};color:${fg};" ` +
-              `title="${DAYS[day]} ${String(h).padStart(2, "0")}:00 - avg ${avg}% over ${b.n} readings">${egg(avg)}</td>`;
+              `title="${DAYS[day]} ${hourLabel(h)} - avg ${avg}% over ${b.n} readings">${egg(avg)}</td>`;
     }
     html += "</tr>";
   }
   html += "</tbody>";
-  document.getElementById("heat-table").innerHTML = html;
+  return { html: `<table class="heat" aria-label="${caption || "Average crowd by day and hour"}">${html}</table>`, samples };
+}
+
+function buildHeatmap(rows) {
+  const host = document.getElementById("heat-host");
+  const hint = document.getElementById("split-hint");
+
+  if (state.split && canSplit()) {
+    const names = orderFacilities(rows);
+    const shown = names.slice(0, SPLIT_LIMIT);
+    hint.textContent = names.length > SPLIT_LIMIT
+      ? `${shown.length} of ${names.length} shown - tick fewer facilities to compare all`
+      : "";
+    hint.style.display = hint.textContent ? "inline-block" : "none";
+    host.innerHTML = shown.map(name => {
+      const { html, samples } = heatTableHtml(rows, name);
+      return `<div class="heat-block">` +
+             `<div class="titlebar"><span>${(state.favs.includes(name) ? "★ " : "") + name}</span>` +
+             `<span class="cell-count">${samples.toLocaleString()} readings</span></div>` +
+             html + `</div>`;
+    }).join("");
+  } else {
+    hint.style.display = canSplit() ? "inline-block" : "none";
+    hint.textContent = canSplit()
+      ? "tick Compare to split these into one heatmap each"
+      : "tick 2+ facilities to compare them side by side";
+    const { html } = heatTableHtml(rows, "");
+    host.innerHTML = html;
+  }
+}
+
+function orderFacilities(rows) {
+  const names = [...new Set(rows.map(r => r.f))];
+  const rank = n => (state.favs.includes(n) ? 0 : 1);
+  return names.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
 function buildGoTable(rows) {
-  const buckets = {};
-  for (const r of rows) {
-    const d = new Date(r.t);
-    const day = (d.getDay() + 6) % 7;
-    const h = d.getHours();
-    if (h < HOURS.open || h >= HOURS.close) continue;
-    const key = day + ":" + h;
-    (buckets[key] = buckets[key] || { sum: 0, n: 0 });
-    buckets[key].sum += r.c; buckets[key].n++;
-  }
-  const cells = Object.entries(buckets)
-    .map(([k, v]) => ({ day: +k.split(":")[0], hour: +k.split(":")[1], avg: v.sum / v.n, n: v.n }))
-    .filter(c => c.n >= 3);
-  const label = c => `${String(c.hour % 12 === 0 ? 12 : c.hour % 12)}${c.hour < 12 ? "am" : "pm"}`;
-  const quiet = cells.slice().sort((a, b) => a.avg - b.avg).slice(0, 5);
-  const busy = cells.slice().sort((a, b) => b.avg - a.avg).slice(0, 3);
-  const rowsHtml = c => {
-    const [bg, fg] = heatColor(Math.round(c.avg));
-    const verdict = c.avg <= 40 ? '<span class="tag pool">GO!</span>' : '<span class="tag gym">BUSY</span>';
-    return `<tr><td>${verdict}</td><td>${DAYS[c.day]}</td><td class="mono">${label(c)}</td>` +
-           `<td class="mono" style="background:${bg};color:${fg};font-weight:bold;">${egg(Math.round(c.avg))}%</td>` +
-           `<td class="mono">${c.n}</td></tr>`;
-  };
-  document.querySelector("#go-table tbody").innerHTML = quiet.map(rowsHtml).join("") + busy.map(rowsHtml).join("");
-}
+  const groups = state.split && canSplit()
+    ? orderFacilities(rows).slice(0, SPLIT_LIMIT)
+    : [null];
 
-function buildDayChart(rows) {
-  const series = {}; // day -> hour -> {sum, n}
-  for (const r of rows) {
-    const d = new Date(r.t);
-    const day = (d.getDay() + 6) % 7;
-    const h = d.getHours();
-    if (h < HOURS.open || h >= HOURS.close) continue;
-    (series[day] = series[day] || {})[h] = series[day][h] || { sum: 0, n: 0 };
-    series[day][h].sum += r.c; series[day][h].n++;
+  const collect = facility => {
+    const buckets = bucket(rows, facility);
+    return Object.entries(buckets).flatMap(([day, hours]) =>
+      Object.entries(hours).map(([h, v]) => ({
+        facility,
+        day: +day,
+        hour: +h,
+        avg: v.sum / v.n,
+        n: v.n,
+      }))).filter(c => c.n >= 3);
+  };
+
+  let out = "";
+  for (const facility of groups) {
+    const cells = collect(facility);
+    if (!cells.length) continue;
+    const quiet = cells.slice().sort((a, b) => a.avg - b.avg).slice(0, facility ? 3 : 5);
+    const busy = cells.slice().sort((a, b) => b.avg - a.avg).slice(0, facility ? 1 : 3);
+    out += quiet.concat(busy).map(c => {
+      const [bg, fg] = heatColor(Math.round(c.avg));
+      const verdict = c.avg <= 40 ? '<span class="tag pool">GO!</span>'
+                                  : '<span class="tag gym">BUSY</span>';
+      return `<tr><td>${verdict}</td>` +
+             `<td class="col-fac">${c.facility ? (state.favs.includes(c.facility) ? "★ " : "") + c.facility : "all"}</td>` +
+             `<td>${DAYS[c.day]}</td><td class="mono">${hourLabel(c.hour)}</td>` +
+             `<td class="mono" style="background:${bg};color:${fg};font-weight:bold;">${egg(Math.round(c.avg))}%</td>` +
+             `<td class="mono">${c.n}</td></tr>`;
+    }).join("");
   }
-  const labels = [];
-  for (let h = HOURS.open; h < HOURS.close; h++)
-    labels.push(`${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`);
-  const colors = ["#0000FF", "#00AA00", "#FF8000", "#8000FF", "#FF0000", "#008080", "#FF00FF"];
-  const datasets = DAYS.map((name, day) => ({
-    label: name,
-    data: Object.keys(series[day] || {}).map(Number).sort((a, b) => a - b)
-      .map(h => ({ x: labels[h - HOURS.open], y: Math.round(series[day][h].sum / series[day][h].n) })),
-    borderColor: colors[day], borderWidth: 2, pointRadius: 2, tension: 0.25, spanGaps: true
-  }));
-  const ctx = document.getElementById("daychart");
-  if (window._daychart) window._daychart.destroy();
-  window._daychart = new Chart(ctx, {
-    type: "line",
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "nearest", intersect: false },
-      scales: {
-        x: { grid: { color: "#E8E8E8" }, ticks: { color: "#000", maxRotation: 0 } },
-        y: { min: 0, max: 100, title: { display: true, text: "AVG CAPACITY %", font: { weight: "bold" } },
-             grid: { color: "#E8E8E8" }, ticks: { color: "#000" } }
-      },
-      plugins: {
-        legend: { labels: { boxWidth: 14, boxHeight: 14, font: { weight: "bold" } } },
-        tooltip: { backgroundColor: "#000080", titleColor: "#fff", bodyColor: "#FFFFCC",
-                   borderColor: "#000", borderWidth: 2, cornerRadius: 0 }
-      }
-    }
-  });
+  document.querySelector("#go-table tbody").innerHTML = out ||
+    '<tr><td colspan="6" style="text-align:center;">no data yet</td></tr>';
+
+  document.querySelector("#go-table").classList.toggle("split", state.split && canSplit());
 }
 
 /* ===== stats + busy ===== */
@@ -794,6 +826,11 @@ document.getElementById("clearsel").addEventListener("click", () => {
   updateHint();
   load();
 });
+document.getElementById("split").addEventListener("change", e => {
+  state.split = e.target.checked;
+  LS.set("split", state.split);
+  load();
+});
 document.getElementById("shade").addEventListener("change", e => {
   state.shade = e.target.checked; LS.set("shade", state.shade);
   if (window._chart) window._chart.update();
@@ -807,6 +844,7 @@ setPressed("#range-group", "days", state.days);
 document.getElementById("timeline-window").classList.toggle("hidden", state.view !== "timeline");
 document.getElementById("besttime-window").classList.toggle("hidden", state.view !== "besttime");
 document.getElementById("shade").checked = state.shade;
+document.getElementById("split").checked = state.split;
 
 (async () => {
   // full name list drives the listbox; falls back to whatever the range returns
