@@ -152,6 +152,7 @@ async fn poll_once(state: &AppState) -> Result<usize, Box<dyn std::error::Error 
 }
 
 fn seed_if_empty(state: &AppState) {
+    normalize_names(&state.db.lock().unwrap());
     let seed_path = std::env::var("SEED_CSV").unwrap_or_default();
     if seed_path.is_empty() {
         return;
@@ -186,6 +187,30 @@ fn seed_if_empty(state: &AppState) {
         }
     }
     println!("[seed] imported {inserted} historical rows (empty-capacity source rows skipped)");
+}
+
+// ActiveSG renamed several facilities between the March 2025 seed era and
+// now (CC -> Community Centre, branding word order). Historical rows keep the
+// old names, so fold them onto the current names at startup. Idempotent.
+const RENAMES: &[(&str, &str)] = &[
+    ("ActiveSG Gym @ Ang Mo Kio CC", "ActiveSG Gym @ Ang Mo Kio Community Centre"),
+    ("Enabling Village ActiveSG Gym", "ActiveSG Gym @ Enabling Village"),
+    ("ActiveSG Gym @ Toa Payoh West CC", "ActiveSG Gym @ Toa Payoh West Community Centre"),
+    ("Jurong Lake Gardens Gym", "Jurong Lake Gardens ActiveSG Gym"),
+    ("Senja-Cashew Gym", "Senja-Cashew ActiveSG Gym"),
+];
+
+fn normalize_names(db: &Connection) {
+    let mut changed = 0;
+    for (old, new) in RENAMES {
+        changed += db.execute(
+            "UPDATE capacities SET facility = ?2 WHERE facility = ?1",
+            rusqlite::params![old, new],
+        ) .unwrap_or(0);
+    }
+    if changed > 0 {
+        println!("[migrate] normalized {changed} rows to current facility names");
+    }
 }
 
 fn parse_csv_line(line: &str) -> Option<(String, i64, i64, bool)> {
@@ -295,10 +320,7 @@ async fn ingest(
     if expected.is_empty() || got != expected {
         return (StatusCode::UNAUTHORIZED, "bad token").into_response();
     }
-    let inner = value
-        .pointer("/result/data/json")
-        .cloned()
-        .unwrap_or(value);
+    let inner = value.pointer("/result/data/json").cloned().unwrap_or(value);
     let body: Snapshot = match serde_json::from_value(inner) {
         Ok(b) => b,
         Err(e) => return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response(),

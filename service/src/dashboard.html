@@ -3,131 +3,395 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ActiveSG Crowd History</title>
+<title>ActiveSG Crowd Tracker 95</title>
+<link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: #0e1013; color: #e6e8eb; font: 14px/1.5 -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  .sub { color: #8b9199; font-size: 12.5px; margin-bottom: 20px; }
-  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
-  select, button { background: #191c21; color: #e6e8eb; border: 1px solid #2a2f36; border-radius: 8px; padding: 7px 11px; font-size: 13px; cursor: pointer; }
-  select:focus, button:focus { outline: 1px solid #4c8dff; }
-  button.on { background: #1d2a44; border-color: #3565b8; color: #9ec1ff; }
-  .group { display: flex; gap: 6px; }
-  .card { background: #14171c; border: 1px solid #22262d; border-radius: 12px; padding: 16px; }
-  .stats { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 14px; color: #8b9199; font-size: 12.5px; }
-  .stats b { color: #e6e8eb; font-size: 14px; display: block; }
-  #chart-wrap { position: relative; height: 420px; }
-  .empty { color: #8b9199; text-align: center; padding: 60px 0; }
+  /* ===== 90s design tokens ===== */
+  :root {
+    --bg: #C0C0C0; --fg: #000000; --muted: #808080; --accent: #0000FF;
+    --secondary: #FF0000; --tertiary: #FFFF00; --success: #00AA00;
+    --panel-yellow: #FFFFCC; --title-a: #000080; --title-b: #1084D0;
+    --bevel-out-bc: #fff #808080 #808080 #fff;
+    --bevel-out-bs: inset -1px -1px 0 #404040, inset 1px 1px 0 #dfdfdf;
+    --bevel-in-bc: #808080 #fff #fff #808080;
+    --bevel-in-bs: inset 1px 1px 0 #404040, inset -1px -1px 0 #dfdfdf;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; border-radius: 0 !important; }
+  body {
+    margin: 0; color: var(--fg);
+    font: 14px/1.5 "MS Sans Serif", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(45deg, #b8b8b8 25%, transparent 25%),
+      linear-gradient(-45deg, #b8b8b8 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #b8b8b8 75%),
+      linear-gradient(-45deg, transparent 75%, #b8b8b8 75%);
+    background-size: 4px 4px;
+    background-position: 0 0, 0 2px, 2px -2px, -2px 0px;
+  }
+  ::selection { background: var(--title-a); color: #fff; }
+  main { max-width: 1024px; margin: 0 auto; padding: 16px; }
+
+  /* ===== bevel primitives ===== */
+  .outset { border: 2px solid; border-color: var(--bevel-out-bc); box-shadow: var(--bevel-out-bs); background: var(--bg); }
+  .inset { border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs); }
+  .win { margin-bottom: 16px; }
+  .titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(to right, var(--title-a), var(--title-b));
+    color: #fff; font-weight: bold; padding: 4px 8px; font-size: 13px;
+  }
+  .titlebar .btns { display: flex; gap: 2px; }
+  .titlebar .btns span {
+    width: 18px; height: 16px; background: var(--bg); color: #000; font-size: 11px;
+    font-weight: bold; display: flex; align-items: center; justify-content: center;
+    border: 2px solid; border-color: var(--bevel-out-bc); box-shadow: var(--bevel-out-bs);
+    line-height: 1; font-family: Tahoma, sans-serif;
+  }
+  .win-body { padding: 12px; }
+  .content-inset { border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs); background: #fff; }
+
+  /* ===== typography ===== */
+  h1 { font-family: "Arial Black", Impact, Haettenschweiler, sans-serif; font-size: clamp(28px, 6vw, 48px); margin: 8px 0 4px; text-transform: uppercase; letter-spacing: -0.01em; }
+  .text-rainbow { animation: rainbow 4s linear infinite; }
+  @keyframes rainbow {
+    0% { color: #ff0000; } 17% { color: #ff8000; } 33% { color: #ffff00; }
+    50% { color: #00ff00; } 67% { color: #0080ff; } 83% { color: #8000ff; } 100% { color: #ff0000; }
+  }
+  .sub { font-size: 12px; color: var(--muted); }
+  .mono { font-family: "Courier New", Courier, monospace; }
+  hr.groove { border: none; height: 4px; margin: 16px 0;
+    background: linear-gradient(to bottom, var(--muted) 0%, var(--muted) 50%, #ffffff 50%, #ffffff 100%); }
+
+  /* ===== controls ===== */
+  .btn {
+    border: 2px solid; border-color: var(--bevel-out-bc); box-shadow: var(--bevel-out-bs);
+    background: var(--bg); color: #000; font-weight: bold; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 8px 14px; font-size: 12px; cursor: pointer;
+    font-family: inherit; transition: none;
+  }
+  .btn:hover { background: #d0d0d0; }
+  .btn:active, .btn[aria-pressed="true"] {
+    border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
+    transform: translate(1px, 1px); background: #fff;
+  }
+  .btn[aria-pressed="true"] { color: var(--title-a); }
+  .btn:focus-visible, select:focus-visible, a:focus-visible {
+    outline: 2px dotted #000; outline-offset: 2px;
+  }
+  .btn-group { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  label.ctl { font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  select {
+    border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
+    background: #fff; color: #000; padding: 7px 8px; font-size: 13px; font-family: inherit;
+    max-width: 100%;
+  }
+  .checkline { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; }
+  .ctrl-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+
+  /* ===== marquee ===== */
+  .marquee { overflow: hidden; border: 2px solid; border-color: var(--bevel-in-bc); box-shadow: var(--bevel-in-bs);
+    background: var(--panel-yellow); padding: 5px 0; }
+  .marquee-track { display: inline-block; white-space: nowrap; animation: scroll-x 24s linear infinite;
+    font-weight: bold; font-size: 13px; }
+  .marquee-track .r { color: var(--secondary); } .marquee-track .b { color: var(--accent); }
+  .marquee-track .g { color: var(--success); } .marquee-track .k { color: #000; }
+  @keyframes scroll-x { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* ===== badges ===== */
+  .badge-new {
+    display: inline-block; background: var(--secondary); color: #fff; font-weight: bold;
+    font-size: 11px; padding: 2px 8px; border: 2px solid; border-color: #ff5555 #800000 #800000 #ff5555;
+    animation: pulse-glow 1.5s ease-in-out infinite; vertical-align: middle; margin-left: 8px;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,0,0,0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 2px rgba(255,0,0,0.5); }
+  }
+
+  /* ===== hit counter stats ===== */
+  .counter {
+    background: #000; color: #00FF00; font-family: "Courier New", Courier, monospace;
+    font-size: 15px; font-weight: bold; padding: 10px 12px; overflow-x: auto; white-space: nowrap;
+  }
+  .counter .lbl { color: #FFFF00; }
+
+  /* ===== tables ===== */
+  table.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.grid th, table.grid td { border: 2px solid var(--muted); padding: 6px 8px; text-align: left; }
+  table.grid th { background: var(--bg); text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+  table.grid tr:nth-child(odd) td { background: #E8E8E8; }
+  table.grid tr:nth-child(even) td { background: #FFFFFF; }
+  .tag { font-size: 10px; font-weight: bold; color: #fff; padding: 1px 6px; display: inline-block; }
+  .tag.gym { background: var(--secondary); }
+  .tag.pool { background: var(--accent); }
+
+  /* ===== footer ===== */
+  .construction {
+    background: repeating-linear-gradient(45deg, #ffff00, #ffff00 10px, #000000 10px, #000000 20px);
+    height: 18px; border: 2px solid; border-color: var(--bevel-out-bc);
+  }
+  .footer-note { font-size: 11px; color: var(--muted); margin-top: 8px; text-align: center; }
+  .footer-note a { color: var(--accent); text-decoration: underline; }
+  .footer-note a:hover { color: var(--secondary); }
+  .squares { display: flex; gap: 6px; justify-content: center; margin: 14px 0 4px; }
+  .squares i { width: 16px; height: 16px; display: block; border: 2px solid; border-color: var(--bevel-out-bc); }
+  .error-line { color: var(--secondary); font-weight: bold; display: none; padding: 8px; }
+  .legend-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .text-rainbow { animation: none; color: var(--secondary); }
+    .marquee-track { animation: none; }
+    .badge-new { animation: none; }
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 </style>
 </head>
 <body>
 <main>
-  <h1>ActiveSG Crowd History</h1>
-  <div class="sub">Gym and pool crowd levels, snapshotted every 10 minutes. <span id="updated"></span></div>
-
-  <div class="bar">
-    <select id="facility"><option value="">All facilities</option></select>
-    <span class="group" id="type-group">
-      <button data-type="" class="on">All</button>
-      <button data-type="pool">Pools</button>
-      <button data-type="gym">Gyms</button>
-    </span>
-    <span class="group" id="range-group">
-      <button data-days="1">24h</button>
-      <button data-days="7" class="on">7d</button>
-      <button data-days="30">30d</button>
-      <button data-days="90">90d</button>
-      <button data-days="max">Max</button>
-    </span>
-  </div>
-
-  <div class="card">
-    <div id="chart-wrap"><canvas id="chart"></canvas></div>
-    <div class="stats">
-      <div>Facilities shown<b id="stat-fac">-</b></div>
-      <div>Readings in view<b id="stat-rows">-</b></div>
-      <div>Current crowd (avg)<b id="stat-now">-</b></div>
-      <div>Busiest right now<b id="stat-busy">-</b></div>
+  <!-- ===== hero window ===== -->
+  <section class="win outset" aria-labelledby="hero-title">
+    <div class="titlebar">
+      <span>ActiveSG Crowd Tracker 95 - Not Connected</span>
+      <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
     </div>
+    <div class="win-body">
+      <h1 id="hero-title" class="text-rainbow">ActiveSG Crowd History</h1>
+      <div class="sub">Gym &amp; swimming pool crowd levels, snapshotted every 10 minutes.<span class="badge-new" aria-hidden="true">LIVE!</span><span class="sr-only">Live data.</span></div>
+      <hr class="groove">
+      <div class="marquee" aria-hidden="true">
+        <span class="marquee-track" id="marquee-track">
+          <span>*** WELCOME TO ACTIVESG CROWD TRACKER *** <span class="r">SKIP THE CROWDS!</span> *** <span class="b">DATA REFRESHES EVERY 10 MINUTES</span> *** <span class="g">BEAT THE QUEUE, PICK THE RIGHT HOUR</span> *** </span>
+          <span>*** WELCOME TO ACTIVESG CROWD TRACKER *** <span class="r">SKIP THE CROWDS!</span> *** <span class="b">DATA REFRESHES EVERY 10 MINUTES</span> *** <span class="g">BEAT THE QUEUE, PICK THE RIGHT HOUR</span> *** </span>
+        </span>
+      </div>
+      <span class="sr-only" id="marquee-static">Data refreshes every 10 minutes. Use the filters to pick a quiet hour.</span>
+    </div>
+  </section>
+
+  <!-- ===== control panel ===== -->
+  <section class="win outset" aria-labelledby="controls-title">
+    <div class="titlebar">
+      <span id="controls-title">Control Panel</span>
+      <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
+    </div>
+    <div class="win-body">
+      <div class="ctrl-row">
+        <div>
+          <label class="ctl" id="lbl-type">Facility type</label>
+          <span class="btn-group" id="type-group" role="group" aria-labelledby="lbl-type">
+            <button class="btn" data-type="" aria-pressed="true">Both</button>
+            <button class="btn" data-type="pool" aria-pressed="false">Swim</button>
+            <button class="btn" data-type="gym" aria-pressed="false">Gym</button>
+          </span>
+        </div>
+        <div>
+          <label class="ctl" for="facility">Facility</label>
+          <select id="facility"><option value="">All facilities</option></select>
+        </div>
+        <div>
+          <label class="ctl" id="lbl-range">Quick range</label>
+          <span class="btn-group" id="range-group" role="group" aria-labelledby="lbl-range">
+            <button class="btn" data-days="1" aria-pressed="false">24h</button>
+            <button class="btn" data-days="7" aria-pressed="true">7d</button>
+            <button class="btn" data-days="30" aria-pressed="false">30d</button>
+            <button class="btn" data-days="90" aria-pressed="false">90d</button>
+            <button class="btn" data-days="max" aria-pressed="false">Max</button>
+          </span>
+        </div>
+        <button class="btn" id="refresh" type="button">Refresh</button>
+      </div>
+      <hr class="groove">
+      <div class="ctrl-row">
+        <span class="checkline">
+          <input type="checkbox" id="shade" checked>
+          <label for="shade">Shade non-operating hours</label>
+        </span>
+        <span class="sub mono">hours (indicative): gyms 07:00-22:00 | pools 08:00-21:30</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== chart window ===== -->
+  <section class="win outset" aria-labelledby="chart-title">
+    <div class="titlebar">
+      <span id="chart-title">Crowd Level Chart - Chart.js 95</span>
+      <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
+    </div>
+    <div class="win-body">
+      <div class="content-inset" style="padding:10px;">
+        <div style="position:relative;height:420px;">
+          <canvas id="chart" aria-label="Line chart of crowd capacity over time" role="img"></canvas>
+        </div>
+        <div class="error-line mono" id="error-line"></div>
+      </div>
+      <div class="legend-note mono">&#9619; shaded band = facility likely closed (indicative hours, not official)</div>
+    </div>
+  </section>
+
+  <!-- ===== stats window ===== -->
+  <section class="win outset" aria-labelledby="stats-title">
+    <div class="titlebar">
+      <span id="stats-title">System Statistics</span>
+      <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
+    </div>
+    <div class="win-body">
+      <div class="counter" id="stats" aria-live="polite">LOADING DATA...</div>
+    </div>
+  </section>
+
+  <!-- ===== busiest table ===== -->
+  <section class="win outset" aria-labelledby="busy-title">
+    <div class="titlebar">
+      <span id="busy-title">Busiest Right Now - Top 5</span>
+      <span class="btns" aria-hidden="true"><span>_</span><span>□</span><span>✕</span></span>
+    </div>
+    <div class="win-body">
+      <div class="content-inset" style="padding:0;">
+        <table class="grid" id="busy-table">
+          <thead><tr><th>#</th><th>Facility</th><th>Type</th><th>Crowd</th></tr></thead>
+          <tbody><tr><td colspan="4" style="text-align:center;">loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="construction" aria-hidden="true"></div>
+  <div class="squares" aria-hidden="true">
+    <i style="background:#FF0000"></i><i style="background:#00AA00"></i><i style="background:#0000FF"></i>
+    <i style="background:#FFFF00"></i><i style="background:#FF00FF"></i><i style="background:#00FFFF"></i>
   </div>
+  <p class="footer-note">
+    Best viewed at 800x600 with Netscape Navigator 4.0 &nbsp;|&nbsp; Visitors:
+    <span class="mono" id="visitors">0000000</span>
+    &nbsp;|&nbsp; <a href="https://github.com/cjunxiang/activesg-tracker">Sign our guestbook (GitHub)</a>
+  </p>
 </main>
 
 <script>
-const state = { facility: "", type: "", days: 7 };
-const PALETTE = ["#4c8dff","#3ecf8e","#ffb454","#ff6b81","#b58cff","#2dd4bf","#f472b6","#a3e635","#fb923c","#60a5fa"];
+Chart.defaults.font.family = '"MS Sans Serif","Segoe UI",Tahoma,sans-serif';
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#000';
 
-async function load() {
-  const params = new URLSearchParams({ days: state.days });
-  if (state.facility) params.set("facility", state.facility);
-  if (state.type) params.set("type", state.type);
-  const res = await fetch("/api/data?" + params);
-  const rows = await res.json();
-  render(rows);
+const state = { type: "", facility: "", days: "7", shade: true };
+const GYM_COLOR = "#FF0000", POOL_COLOR = "#0000FF", SOLO_COLOR = "#000080";
+const POOL_OPEN = 8, POOL_CLOSE = 21.5, GYM_OPEN = 7, GYM_CLOSE = 22;
+
+function hoursFor(type) {
+  if (type === "gym") return [GYM_OPEN, GYM_CLOSE];
+  if (type === "pool") return [POOL_OPEN, POOL_CLOSE];
+  return [POOL_OPEN, GYM_CLOSE]; // both: shade only hours nothing is open
 }
 
-function render(rows) {
-  const byFacility = new Map();
-  for (const r of rows) {
-    if (!byFacility.has(r.f)) byFacility.set(r.f, []);
-    byFacility.get(r.f).push([r.t, r.c]);
-  }
-
-  const facSel = document.getElementById("facility");
-  if (facSel.options.length <= 1 && byFacility.size) {
-    for (const name of [...byFacility.keys()].sort()) {
-      const o = document.createElement("option");
-      o.value = o.textContent = name;
-      facSel.appendChild(o);
+const hoursPlugin = {
+  id: "hours95",
+  beforeDatasetsDraw(chart) {
+    if (!state.shade) return;
+    const area = chart.chartArea, x = chart.scales.x;
+    if (!area || !isFinite(x.min)) return;
+    const [openH, closeH] = hoursFor(state.type);
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.fillStyle = "rgba(128,128,128,0.28)";
+    const day = new Date(x.min); day.setHours(0, 0, 0, 0);
+    while (day.getTime() <= x.max) {
+      const from = new Date(day); from.setHours(0, 0, 0, 0);
+      const toOpen = new Date(day); toOpen.setHours(openH);
+      band(ctx, x, area, from.getTime(), toOpen.getTime());
+      const fromClose = new Date(day); fromClose.setHours(Math.floor(closeH), (closeH % 1) * 60);
+      const to = new Date(day); to.setHours(24);
+      band(ctx, x, area, fromClose.getTime(), to.getTime());
+      day.setDate(day.getDate() + 1);
     }
+    ctx.restore();
   }
+};
+function band(ctx, x, area, t1, t2) {
+  const l = Math.max(x.getPixelForValue(t1), area.left);
+  const r = Math.min(x.getPixelForValue(t2), area.right);
+  if (r > l) ctx.fillRect(l, area.top, r - l, area.bottom - area.top);
+}
 
-  let datasets;
-  if (!state.facility && byFacility.size > 1) {
-    const byTs = new Map();
-    for (const [, points] of byFacility)
-      for (const [t, c] of points)
-        byTs.set(t, (byTs.get(t) || []).concat(c));
-    const ts = [...byTs.keys()].sort((a, b) => a - b);
-    datasets = [{
-      label: "Average across facilities",
-      data: ts.map(t => ({ x: t, y: Math.round(byTs.get(t).reduce((a, b) => a + b, 0) / byTs.get(t).length) })),
-      borderColor: "#4c8dff", borderWidth: 2, pointRadius: 0, tension: 0.25, fill: false
-    }];
-  } else {
-    datasets = [...byFacility.entries()].map(([name, points], i) => ({
-      label: name,
-      data: points.map(([t, c]) => ({ x: t, y: c })),
-      borderColor: PALETTE[i % PALETTE.length],
-      borderWidth: 1.8, pointRadius: 0, tension: 0.25, fill: false
-    }));
+async function fetchRows(extraType) {
+  const params = new URLSearchParams({ days: state.days });
+  const t = extraType !== undefined ? extraType : state.type;
+  if (t) params.set("type", t);
+  if (state.facility) params.set("facility", state.facility);
+  const res = await fetch("/api/data?" + params);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+function toAvgSeries(rows) {
+  const byTs = new Map();
+  for (const r of rows) {
+    if (!byTs.has(r.t)) byTs.set(r.t, []);
+    byTs.get(r.t).push(r.c);
   }
+  return [...byTs.entries()].sort((a, b) => a[0] - b[0])
+    .map(([t, vals]) => ({ x: t, y: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) }));
+}
 
-  const empty = rows.length === 0;
-  document.getElementById("chart-wrap").style.display = empty ? "none" : "";
-  document.querySelector(".empty")?.remove();
-  if (empty) {
-    const d = document.createElement("div");
-    d.className = "empty";
-    d.textContent = "No data in this range yet.";
-    document.querySelector(".card").prepend(d);
-  } else {
-    const times = rows.map(r => r.t);
-    const latest = Math.max(...times);
-    const nowRows = rows.filter(r => r.t === latest);
-    const avgNow = Math.round(nowRows.reduce((a, r) => a + r.c, 0) / nowRows.length);
-    const busy = nowRows.reduce((a, r) => r.c > a.c ? r : a, nowRows[0]);
-    document.getElementById("updated").textContent = "Last snapshot: " + new Date(latest).toLocaleString();
-    document.getElementById("stat-fac").textContent = byFacility.size;
-    document.getElementById("stat-rows").textContent = rows.length.toLocaleString();
-    document.getElementById("stat-now").textContent = avgNow + "%";
-    document.getElementById("stat-busy").textContent = busy ? busy.f + " (" + busy.c + "%)" : "-";
+function showError(msg) {
+  const el = document.getElementById("error-line");
+  el.textContent = "ERROR: " + msg;
+  el.style.display = "block";
+}
+
+async function load() {
+  const err = document.getElementById("error-line");
+  err.style.display = "none";
+  try {
+    let datasets, allRows;
+    if (!state.type && !state.facility) {
+      const [pools, gyms] = await Promise.all([fetchRows("pool"), fetchRows("gym")]);
+      allRows = pools.concat(gyms);
+      datasets = [
+        { label: "Pools (avg)", data: toAvgSeries(pools), borderColor: POOL_COLOR, borderWidth: 2.5, pointRadius: 0, tension: 0.25 },
+        { label: "Gyms (avg)", data: toAvgSeries(gyms), borderColor: GYM_COLOR, borderWidth: 2.5, pointRadius: 0, tension: 0.25 }
+      ];
+    } else {
+      allRows = await fetchRows();
+      const byFacility = new Map();
+      for (const r of allRows) {
+        if (!byFacility.has(r.f)) byFacility.set(r.f, []);
+        byFacility.get(r.f).push([r.t, r.c]);
+      }
+      datasets = [...byFacility.entries()].map(([name, pts], i) => ({
+        label: name,
+        data: pts.map(([t, c]) => ({ x: t, y: c })),
+        borderColor: byFacility.size === 1 ? SOLO_COLOR : ["#0000FF", "#FF0000", "#00AA00", "#FF8000", "#8000FF"][i % 5],
+        borderWidth: 2, pointRadius: 0, tension: 0.25
+      }));
+    }
+    rebuildFacilitySelect(allRows);
+    renderChart(datasets);
+    renderStats(allRows);
+  } catch (e) {
+    showError("Could not load data (" + e.message + "). Is the tracker running?");
   }
+}
 
+function rebuildFacilitySelect(rows) {
+  const sel = document.getElementById("facility");
+  const names = [...new Set(rows.map(r => r.f))].sort();
+  const current = state.facility;
+  sel.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = all.textContent = "All facilities";
+  sel.appendChild(all);
+  for (const n of names) {
+    const o = document.createElement("option");
+    o.value = o.textContent = n;
+    sel.appendChild(o);
+  }
+  if (names.includes(current)) sel.value = current;
+}
+
+function renderChart(datasets) {
   const ctx = document.getElementById("chart");
   if (window._chart) window._chart.destroy();
   window._chart = new Chart(ctx, {
@@ -137,30 +401,67 @@ function render(rows) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "nearest", intersect: false },
       scales: {
-        x: { type: "time", time: { tooltipFormat: "ddd HH:mm" }, grid: { color: "#1d2127" }, ticks: { color: "#8b9199" } },
-        y: { min: 0, max: 100, title: { display: true, text: "Capacity %" }, grid: { color: "#1d2127" }, ticks: { color: "#8b9199" } }
+        x: { type: "time", time: { tooltipFormat: "ddd d MMM, HH:mm" },
+             grid: { color: "#E8E8E8" }, ticks: { color: "#000", maxRotation: 0, autoSkipPadding: 12 } },
+        y: { min: 0, max: 100, title: { display: true, text: "CAPACITY %", font: { weight: "bold" } },
+             grid: { color: "#E8E8E8" }, ticks: { color: "#000" } }
       },
       plugins: {
-        legend: { display: !state.facility === false || datasets.length <= 10, labels: { color: "#8b9199", boxWidth: 12 } },
-        tooltip: { callbacks: { title: items => new Date(items[0].parsed.x).toLocaleString() } }
+        legend: { labels: { boxWidth: 14, boxHeight: 14, font: { weight: "bold" } } },
+        tooltip: {
+          backgroundColor: "#000080", titleColor: "#fff", bodyColor: "#FFFFCC",
+          borderColor: "#000", borderWidth: 2, cornerRadius: 0, displayColors: true,
+          titleFont: { weight: "bold" }
+        }
       }
-    }
+    },
+    plugins: [hoursPlugin]
   });
 }
 
-document.getElementById("facility").addEventListener("change", e => { state.facility = e.target.value; load(); });
+function renderStats(rows) {
+  if (!rows.length) {
+    document.getElementById("stats").textContent = "NO DATA IN RANGE. TRY A BIGGER RANGE.";
+    document.querySelector("#busy-table tbody").innerHTML = '<tr><td colspan="4" style="text-align:center;">no data</td></tr>';
+    return;
+  }
+  const latestTs = Math.max(...rows.map(r => r.t));
+  const nowRows = rows.filter(r => r.t === latestTs);
+  const avgNow = Math.round(nowRows.reduce((a, r) => a + r.c, 0) / nowRows.length);
+  const busy = nowRows.reduce((a, r) => (r.c > a.c ? r : a), nowRows[0]);
+  const nFac = new Set(rows.map(r => r.f)).size;
+  const when = new Date(latestTs).toLocaleString();
+  document.getElementById("stats").innerHTML =
+    '<span class="lbl">READINGS:</span> ' + String(rows.length).padStart(7, "0") +
+    ' | <span class="lbl">FACILITIES:</span> ' + String(nFac).padStart(3, "0") +
+    ' | <span class="lbl">AVG NOW:</span> ' + String(avgNow).padStart(3, "0") + "%" +
+    ' | <span class="lbl">LAST SNAPSHOT:</span> ' + when;
+  document.getElementById("visitors").textContent = String(rows.length).padStart(7, "0");
+
+  const top = [...nowRows].sort((a, b) => b.c - a.c).slice(0, 5);
+  const typeOf = f => (f.toUpperCase().includes("GYM") ? "GYM" : "SWIM");
+  document.querySelector("#busy-table tbody").innerHTML = top.map((r, i) =>
+    `<tr><td class="mono">${i + 1}</td><td>${r.f}</td>` +
+    `<td><span class="tag ${typeOf(r.f) === "GYM" ? "gym" : "pool"}">${typeOf(r.f)}</span></td>` +
+    `<td class="mono">${r.c}%</td></tr>`).join("");
+}
+
 document.getElementById("type-group").addEventListener("click", e => {
   if (e.target.dataset.type === undefined) return;
   state.type = e.target.dataset.type;
-  for (const b of document.querySelectorAll("#type-group button")) b.classList.toggle("on", b === e.target);
+  for (const b of document.querySelectorAll("#type-group button")) b.setAttribute("aria-pressed", b === e.target ? "true" : "false");
+  state.facility = "";
   load();
 });
 document.getElementById("range-group").addEventListener("click", e => {
   if (e.target.dataset.days === undefined) return;
   state.days = e.target.dataset.days;
-  for (const b of document.querySelectorAll("#range-group button")) b.classList.toggle("on", b === e.target);
+  for (const b of document.querySelectorAll("#range-group button")) b.setAttribute("aria-pressed", b === e.target ? "true" : "false");
   load();
 });
+document.getElementById("facility").addEventListener("change", e => { state.facility = e.target.value; load(); });
+document.getElementById("shade").addEventListener("change", e => { state.shade = e.target.checked; if (window._chart) window._chart.update(); });
+document.getElementById("refresh").addEventListener("click", load);
 
 load();
 </script>
