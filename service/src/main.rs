@@ -42,11 +42,17 @@ fn sgt() -> FixedOffset {
 /// so the default only covers the hours where facilities are actually open;
 /// override with OPEN_HOUR / CLOSE_HOUR if the estate changes.
 fn open_hour() -> u32 {
-    std::env::var("OPEN_HOUR").ok().and_then(|v| v.parse().ok()).unwrap_or(8)
+    std::env::var("OPEN_HOUR")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8)
 }
 
 fn close_hour() -> u32 {
-    std::env::var("CLOSE_HOUR").ok().and_then(|v| v.parse().ok()).unwrap_or(21)
+    std::env::var("CLOSE_HOUR")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(21)
 }
 
 /// Comma-separated keys; a single key is fine too.
@@ -131,7 +137,14 @@ fn next_delay_secs(db: &Connection, keys: &[String]) -> u64 {
             sgt().with_ymd_and_hms(now.year(), now.month(), now.day(), open_hour(), 0, 0)
         } else {
             let tomorrow = now.date_naive() + chrono::Days::new(1);
-            sgt().with_ymd_and_hms(tomorrow.year(), tomorrow.month(), tomorrow.day(), open_hour(), 0, 0)
+            sgt().with_ymd_and_hms(
+                tomorrow.year(),
+                tomorrow.month(),
+                tomorrow.day(),
+                open_hour(),
+                0,
+                0,
+            )
         };
         let target = next_open.single().unwrap_or(now);
         let secs = (target - now).num_seconds().max(60) as u64;
@@ -353,8 +366,8 @@ async fn main() {
                     continue;
                 };
 
-                let bin = std::env::var("IMPERSONATE_BIN")
-                    .unwrap_or_else(|_| "curl-impersonate".into());
+                let bin =
+                    std::env::var("IMPERSONATE_BIN").unwrap_or_else(|_| "curl-impersonate".into());
                 match firecrawl_request(&bin, &key).await {
                     Ok(payload) => {
                         // Billed the moment the scrape returns, even if the body
@@ -412,13 +425,18 @@ fn store_snapshot(state: &AppState, snap: &Snapshot) -> usize {
         .unwrap_or(snap.timestamp);
     let db = state.db.lock().unwrap();
     let mut inserted = 0usize;
-    for f in snap.swim_facilities.iter().chain(snap.gym_facilities.iter()) {
-        let inserted_now = db.execute(
-            "INSERT OR IGNORE INTO capacities(facility, ts, capacity, is_closed)
+    for f in snap
+        .swim_facilities
+        .iter()
+        .chain(snap.gym_facilities.iter())
+    {
+        let inserted_now = db
+            .execute(
+                "INSERT OR IGNORE INTO capacities(facility, ts, capacity, is_closed)
              VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![f.name, ts, f.capacity, f.is_closed as i64],
-        )
-        .unwrap_or(0);
+                rusqlite::params![f.name, ts, f.capacity, f.is_closed as i64],
+            )
+            .unwrap_or(0);
         // OR IGNORE returns Ok(0) for a duplicate; counting attempts as rows
         // made a fully-ignored snapshot log as "56 readings stored".
         inserted += inserted_now;
