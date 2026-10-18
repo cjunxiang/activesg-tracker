@@ -185,6 +185,9 @@ async fn firecrawl_request(bin: &str, key: &str) -> Result<String, String> {
     let body = serde_json::json!({
         "url": POLL_URL,
         "formats": ["rawHtml"],
+        // Firecrawl defaults to a 48h scrape cache; without this every poll
+        // replays the same stale body (observed: 4h of identical snapshots).
+        "maxAge": 0,
         "onlyMainContent": false,
         "proxy": "auto",
         "timeout": 45000,
@@ -313,6 +316,13 @@ async fn main() {
         "DELETE FROM capacities WHERE rowid NOT IN
              (SELECT MIN(rowid) FROM capacities GROUP BY facility, ts);
          CREATE UNIQUE INDEX IF NOT EXISTS idx_cap_fac_ts ON capacities(facility, ts);",
+    );
+    // One-off: 2026-10-18 12:40-16:31 SGT stored Firecrawl's cached replay of
+    // the previous day's snapshot (flat values, one body served for 4h); drop
+    // it so averages are not polluted.
+    let _ = db.execute(
+        "DELETE FROM capacities WHERE ts BETWEEN 1792298450000 AND 1792312260000",
+        [],
     );
     let state = Arc::new(AppState { db: Mutex::new(db) });
 
