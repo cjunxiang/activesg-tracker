@@ -146,8 +146,7 @@ fn next_delay_secs(db: &Connection, keys: &[String]) -> u64 {
             d => {
                 let last = chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
                     .and_then(|f| f.checked_add_months(chrono::Months::new(1)))
-                    .map(|n| n.pred_opt())
-                    .flatten()
+                    .and_then(|n| n.pred_opt())
                     .map(|l| l.day())
                     .unwrap_or(30);
                 (last - d + 1) as i64
@@ -404,20 +403,25 @@ async fn main() {
 /// A poll can repeat a facility, or repeat a whole snapshot when a retry lands on
 /// the same timestamp; keep the write idempotent.
 fn store_snapshot(state: &AppState, snap: &Snapshot) -> usize {
-    let ts = snap.timestamp;
+    // Stamp with scrape time: ActiveSG's feed froze its own timestamp field at
+    // 2026-10-17 21:29 SGT while crowd values keep changing, so keying rows by
+    // it collapsed every new snapshot into an ignored duplicate.
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(snap.timestamp);
     let db = state.db.lock().unwrap();
     let mut inserted = 0usize;
     for f in snap.swim_facilities.iter().chain(snap.gym_facilities.iter()) {
-        if db
-            .execute(
-                "INSERT OR IGNORE INTO capacities(facility, ts, capacity, is_closed)
-                 VALUES (?1, ?2, ?3, ?4)",
-                rusqlite::params![f.name, ts, f.capacity, f.is_closed as i64],
-            )
-            .is_ok()
-        {
-            inserted += 1;
-        }
+        let inserted_now = db.execute(
+            "INSERT OR IGNORE INTO capacities(facility, ts, capacity, is_closed)
+             VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![f.name, ts, f.capacity, f.is_closed as i64],
+        )
+        .unwrap_or(0);
+        // OR IGNORE returns Ok(0) for a duplicate; counting attempts as rows
+        // made a fully-ignored snapshot log as "56 readings stored".
+        inserted += inserted_now;
     }
     inserted
 }
@@ -453,7 +457,12 @@ async fn poll_once(state: &AppState) -> Result<usize, Box<dyn std::error::Error 
         return Err(format!("HTTP {code}: {head}").into());
     }
     let snap: Rpc = serde_json::from_str(body)?;
-    let ts = snap.result.data.json.timestamp;
+    // Scrape time, not the feed's timestamp: ActiveSG froze that field
+    // (see store_snapshot).
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(snap.result.data.json.timestamp);
     let facilities = snap
         .result
         .data
